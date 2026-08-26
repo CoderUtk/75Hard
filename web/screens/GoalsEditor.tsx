@@ -20,7 +20,7 @@ export function GoalsEditor() {
   const navigate = useNavigate();
 
   const load = () =>
-    api.goals().then(setGoals).catch((e: unknown) => {
+    api.goals().then((g) => { setGoals(g); setError(''); }).catch((e: unknown) => {
       if (e instanceof ApiError && e.status === 401) {
         navigate('/login', { replace: true });
       } else {
