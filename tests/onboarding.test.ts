@@ -116,3 +116,24 @@ it('one of two concurrent onboarding requests wins with a 409, not a 500', async
   // The loser must not leave orphaned seeded goals behind.
   expect(await listActiveGoals(env.DB, 'u1')).toHaveLength(6);
 });
+
+it('a failed seeding batch leaves no stuck active run behind', async () => {
+  // Force the 'Alcohol' banned-food insert (part of the hard preset) to
+  // collide with an existing row, so the run+goals+foods batch fails.
+  await env.DB.prepare(
+    "INSERT INTO food_items (id,user_id,name,status) VALUES (?,?,?,'banned')",
+  ).bind('blocker', 'u1', 'Alcohol').run();
+
+  const failed = await post('/api/onboarding', { variant: 'hard', startDate: '2026-08-26' });
+  expect(failed.status).not.toBe(200);
+
+  // No half-seeded, permanently-active run left locking the user out.
+  expect(await getActiveRun(env.DB, 'u1')).toBeNull();
+  expect(await listActiveGoals(env.DB, 'u1')).toHaveLength(0);
+
+  // Clear the blocker and retry: must succeed normally, not 409.
+  await env.DB.prepare('DELETE FROM food_items WHERE id = ?').bind('blocker').run();
+  const retried = await post('/api/onboarding', { variant: 'hard', startDate: '2026-08-26' });
+  expect(retried.status).toBe(200);
+  expect(await getActiveRun(env.DB, 'u1')).not.toBeNull();
+});

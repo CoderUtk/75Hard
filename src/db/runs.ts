@@ -11,15 +11,24 @@ export function getActiveRun(db: D1Database, userId: string): Promise<RunRow | n
     .bind(userId).first<RunRow>();
 }
 
+/** Prepared, unexecuted — for callers that need to submit it as part of a
+ *  larger `db.batch()` (one implicit transaction) alongside other inserts. */
+export function createRunStatement(
+  db: D1Database, id: string, userId: string, variant: 'hard' | 'soft',
+  startDate: string, attemptNo: number,
+): D1PreparedStatement {
+  return db.prepare(
+    `INSERT INTO runs (id,user_id,variant,attempt_no,start_date,status)
+     VALUES (?,?,?,?,?,'active')`,
+  ).bind(id, userId, variant, attemptNo, startDate);
+}
+
 export async function createRun(
   db: D1Database, userId: string, variant: 'hard' | 'soft',
   startDate: string, attemptNo: number,
 ): Promise<RunRow> {
   const id = newId();
-  await db.prepare(
-    `INSERT INTO runs (id,user_id,variant,attempt_no,start_date,status)
-     VALUES (?,?,?,?,?,'active')`,
-  ).bind(id, userId, variant, attemptNo, startDate).run();
+  await createRunStatement(db, id, userId, variant, startDate, attemptNo).run();
   return {
     id, user_id: userId, variant, attempt_no: attemptNo,
     start_date: startDate, status: 'active', ended_date: null,

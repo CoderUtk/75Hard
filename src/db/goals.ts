@@ -19,15 +19,24 @@ export function toSnapshot(rows: GoalRow[]): GoalSnapshot[] {
   }));
 }
 
+/** Prepared, unexecuted — for callers that need to submit it as part of a
+ *  larger `db.batch()` (one implicit transaction) alongside other inserts. */
+export function createGoalStatement(
+  db: D1Database, id: string, userId: string,
+  g: { title: string; kind: GoalKind; target: number; unit: string | null; sortOrder: number },
+): D1PreparedStatement {
+  return db.prepare(
+    `INSERT INTO goals (id,user_id,title,kind,target,unit,sort_order,active,created_at)
+     VALUES (?,?,?,?,?,?,?,1,?)`,
+  ).bind(id, userId, g.title, g.kind, g.target, g.unit, g.sortOrder, Date.now());
+}
+
 export async function createGoal(
   db: D1Database, userId: string,
   g: { title: string; kind: GoalKind; target: number; unit: string | null; sortOrder: number },
 ): Promise<GoalRow> {
   const id = newId();
-  await db.prepare(
-    `INSERT INTO goals (id,user_id,title,kind,target,unit,sort_order,active,created_at)
-     VALUES (?,?,?,?,?,?,?,1,?)`,
-  ).bind(id, userId, g.title, g.kind, g.target, g.unit, g.sortOrder, Date.now()).run();
+  await createGoalStatement(db, id, userId, g).run();
   return {
     id, user_id: userId, title: g.title, kind: g.kind,
     target: g.target, unit: g.unit, sort_order: g.sortOrder, active: 1,
