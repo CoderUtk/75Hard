@@ -18,9 +18,15 @@ export default {
     // "30 6 * * *" is 12:00 IST — the daily lock.
     // "30 15 * * *" is 21:00 IST — the nudge push, added in Phase 5.
     if (event.cron === '30 6 * * *') {
-      ctx.waitUntil(runDailyLock(env.DB, now).then(({ graded }) => {
-        console.log(`daily lock graded ${graded} users`);
-      }));
+      ctx.waitUntil(
+        runDailyLock(env.DB, now)
+          .then(({ graded }) => {
+            console.log(`daily lock graded ${graded} users`);
+          })
+          .catch((err) => {
+            console.error('daily lock failed', err);
+          })
+      );
     }
   },
 } satisfies ExportedHandler<Env>;

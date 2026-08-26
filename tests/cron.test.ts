@@ -1,7 +1,7 @@
 import { env, applyD1Migrations } from 'cloudflare:test';
 import { it, expect, beforeAll, beforeEach } from 'vitest';
 import { runDailyLock } from '../src/services/cron';
-import { createRun, getActiveRun } from '../src/db/runs';
+import { createRun } from '../src/db/runs';
 import { createGoal } from '../src/db/goals';
 import { countStrikes } from '../src/db/strikes';
 
@@ -68,4 +68,13 @@ it('continues grading remaining users when one user has corrupt data', async () 
   const run1 = await env.DB.prepare('SELECT id FROM runs WHERE user_id = ?')
     .bind('u1').first<{ id: string }>();
   expect(await countStrikes(env.DB, run1!.id)).toBe(1);
+});
+
+it('rejects when the user-selection query fails', async () => {
+  // Intentionally drop the runs table so the SELECT fails.
+  // This tests that failures in runDailyLock's database query (not the per-user grading)
+  // are NOT silently swallowed and propagate to the scheduled() handler for logging.
+  await env.DB.prepare('DROP TABLE runs').run();
+
+  await expect(runDailyLock(env.DB, new Date('2026-08-27T07:00:00Z'))).rejects.toThrow();
 });
