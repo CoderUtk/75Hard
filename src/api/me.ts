@@ -7,7 +7,7 @@ import { listActiveGoals } from '../db/goals';
 import { getProgress } from '../db/days';
 import { countStrikes } from '../db/strikes';
 import { ensureDay } from '../services/grading';
-import { startRun } from '../services/onboarding';
+import { startRun, isActiveRunConflict } from '../services/onboarding';
 import type { App } from './middleware';
 
 export const me = new Hono<App>();
@@ -26,10 +26,17 @@ me.post('/onboarding', async (c) => {
     return c.json({ error: 'a run is already active' }, 409);
   }
 
-  const run = await startRun(
-    c.env.DB, user.id, parsed.data.variant, parsed.data.startDate, true,
-  );
-  return c.json(run);
+  try {
+    const run = await startRun(
+      c.env.DB, user.id, parsed.data.variant, parsed.data.startDate, true,
+    );
+    return c.json(run);
+  } catch (err) {
+    // Backstop for the check-then-insert race: a second request that also
+    // passed the getActiveRun check above loses at the DB's unique index.
+    if (isActiveRunConflict(err)) return c.json({ error: 'a run is already active' }, 409);
+    throw err;
+  }
 });
 
 me.post('/run/reset', async (c) => {
@@ -42,12 +49,18 @@ me.post('/run/reset', async (c) => {
   const previous = results[0];
   if (!previous) return c.json({ error: 'no previous run' }, 409);
 
-  // seed = false: goals and food lists carry over untouched, regardless of
-  // whether the previous run ended in 'failed' or 'done'.
-  const run = await startRun(
-    c.env.DB, user.id, previous.variant, todayIST(new Date()), false,
-  );
-  return c.json(run);
+  try {
+    // seed = false: goals and food lists carry over untouched, regardless of
+    // whether the previous run ended in 'failed' or 'done'.
+    const run = await startRun(
+      c.env.DB, user.id, previous.variant, todayIST(new Date()), false,
+    );
+    return c.json(run);
+  } catch (err) {
+    // Backstop for the check-then-insert race, same as onboarding above.
+    if (isActiveRunConflict(err)) return c.json({ error: 'run is still active' }, 409);
+    throw err;
+  }
 });
 
 me.get('/', async (c) => {

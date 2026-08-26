@@ -100,3 +100,19 @@ it('starts attempt 2 after a completed (done) run, not just a failed one', async
     .bind(first!.id).first<{ status: string }>();
   expect(old?.status).toBe('done'); // archived, not deleted
 });
+
+it('one of two concurrent onboarding requests wins with a 409, not a 500', async () => {
+  const [a, b] = await Promise.all([
+    post('/api/onboarding', { variant: 'hard', startDate: '2026-08-26' }),
+    post('/api/onboarding', { variant: 'hard', startDate: '2026-08-26' }),
+  ]);
+  const statuses = [a.status, b.status].sort();
+  expect(statuses).toEqual([200, 409]);
+
+  const { results } = await env.DB.prepare('SELECT * FROM runs WHERE user_id = ?')
+    .bind('u1').all();
+  expect(results).toHaveLength(1);
+
+  // The loser must not leave orphaned seeded goals behind.
+  expect(await listActiveGoals(env.DB, 'u1')).toHaveLength(6);
+});
