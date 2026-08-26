@@ -1,8 +1,8 @@
 import { env, applyD1Migrations } from 'cloudflare:test';
-import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { it, expect, beforeAll, beforeEach } from 'vitest';
 import { createRun, getActiveRun, failRun } from '../src/db/runs';
-import { createGoal, listActiveGoals, archiveGoal, toSnapshot } from '../src/db/goals';
-import { createDay, getProgress, setProgress, lockDay } from '../src/db/days';
+import { createGoal, listActiveGoals, archiveGoal, updateGoal, toSnapshot } from '../src/db/goals';
+import { createDay, getProgress, setProgress, lockDay, updateSnapshot } from '../src/db/days';
 import { addStrikes, countStrikes } from '../src/db/strikes';
 
 beforeAll(async () => { await applyD1Migrations(env.DB, env.MIGRATIONS); });
@@ -55,4 +55,37 @@ it('appends every strike without clamping', async () => {
   const run = await createRun(env.DB, 'u1', 'hard', '2026-08-26', 1);
   await addStrikes(env.DB, run.id, '2026-08-26', 'missed_goal', ['g1','g2','g3','g4'], 1);
   expect(await countStrikes(env.DB, run.id)).toBe(4);
+});
+
+it('does not let a second user mutate the first user\'s goal', async () => {
+  await env.DB.prepare(
+    "INSERT INTO users (id,name,color,pin_hash,pin_salt,created_at) VALUES ('u2','B','#000000','h','s',1)",
+  ).run();
+  const g = await createGoal(env.DB, 'u1',
+    { title: 'Read', kind: 'check', target: 1, unit: null, sortOrder: 0 });
+
+  await updateGoal(env.DB, 'u2', g.id,
+    { title: 'Hijacked', kind: 'count', target: 99, unit: 'x', sortOrder: 5 });
+  let row = await env.DB.prepare('SELECT title, target FROM goals WHERE id = ?')
+    .bind(g.id).first<{ title: string; target: number }>();
+  expect(row).toEqual({ title: 'Read', target: 1 });
+
+  await archiveGoal(env.DB, 'u2', g.id);
+  row = await env.DB.prepare('SELECT active FROM goals WHERE id = ?')
+    .bind(g.id).first() as any;
+  expect(row.active).toBe(1);
+});
+
+it('does not let updateSnapshot touch a locked day', async () => {
+  const run = await createRun(env.DB, 'u1', 'hard', '2026-08-26', 1);
+  const goals = toSnapshot([await createGoal(env.DB, 'u1',
+    { title: 'Water', kind: 'count', target: 4, unit: 'glasses', sortOrder: 0 })]);
+  const day = await createDay(env.DB, run.id, '2026-08-26', 1, goals);
+
+  expect(await lockDay(env.DB, day.id, 'passed', 111)).toBe(true);
+  await updateSnapshot(env.DB, day.id, []);
+
+  const row = await env.DB.prepare('SELECT goals_snapshot FROM days WHERE id = ?')
+    .bind(day.id).first<{ goals_snapshot: string }>();
+  expect(row?.goals_snapshot).toBe(JSON.stringify(goals));
 });
