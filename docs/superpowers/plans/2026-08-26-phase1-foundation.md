@@ -1003,7 +1003,7 @@ git commit -m "feat: pbkdf2 pin hashing and id generation"
 - Produces:
   - `PRESETS: Record<'hard'|'soft', { goals: PresetGoal[]; banned: string[] }>`
   - `type PresetGoal = { title: string; kind: GoalKind; target: number; unit: string | null }`
-  - `getUserByName`, `listUsersPublic`, `getUser`, `recordPinFailure`, `clearPinFailures`
+  - `listUsersPublic`, `getUser`, `recordPinFailure`, `clearPinFailures`
   - `createSession`, `getSessionUser`, `deleteSession`
   - `getActiveRun`, `createRun`, `failRun`, `listRuns`
   - `listActiveGoals`, `createGoal`, `updateGoal`, `archiveGoal`
