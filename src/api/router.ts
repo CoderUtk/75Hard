@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { auth } from './auth';
 import { me } from './me';
+import { goals } from './goals';
 import { requireAuth, type App } from './middleware';
 
 export const api = new Hono<App>().basePath('/api');
@@ -15,5 +16,6 @@ api.use('*', async (c, next) => {
 
 api.route('/me', me);          // GET /api/me
 api.route('/', me);            // POST /api/onboarding, POST /api/run/reset
+api.route('/goals', goals);    // GET/POST /api/goals, PATCH/DELETE /api/goals/:id
 
 export default api;
