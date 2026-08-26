@@ -6,9 +6,13 @@ export async function hashPin(
   pin: string,
   existingSalt?: string,
 ): Promise<{ hash: string; salt: string }> {
+  // getRandomValues is typed to accept/return Uint8Array<ArrayBufferLike> (which
+  // includes SharedArrayBuffer), but a freshly allocated Uint8Array(16) is always
+  // backed by a plain, non-shared ArrayBuffer. Assert that real invariant so the
+  // result satisfies BufferSource below.
   const salt = existingSalt
     ? fromB64url(existingSalt)
-    : crypto.getRandomValues(new Uint8Array(16));
+    : (crypto.getRandomValues(new Uint8Array(16)) as Uint8Array<ArrayBuffer>);
 
   const key = await crypto.subtle.importKey(
     'raw', new TextEncoder().encode(pin), 'PBKDF2', false, ['deriveBits'],

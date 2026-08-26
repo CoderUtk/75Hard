@@ -7,8 +7,9 @@
     "dev": "wrangler dev",
     "build": "vite build",
     "deploy": "npm run build && wrangler deploy",
-    "pretest": "node -e \"const fs = require('fs'); fs.mkdirSync('dist/client', { recursive: true });\"",
+    "pretest": "node -e \"const fs = require('fs'); fs.mkdirSync('dist/client', { recursive: true });\" && npm run typecheck",
     "test": "vitest run",
+    "typecheck": "tsc --noEmit",
     "test:watch": "vitest",
     "migrate:local": "wrangler d1 migrations apply DB --local",
     "migrate:remote": "wrangler d1 migrations apply DB --remote"

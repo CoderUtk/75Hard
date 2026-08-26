@@ -66,14 +66,14 @@ it('does not let a second user mutate the first user\'s goal', async () => {
 
   await updateGoal(env.DB, 'u2', g.id,
     { title: 'Hijacked', kind: 'count', target: 99, unit: 'x', sortOrder: 5 });
-  let row = await env.DB.prepare('SELECT title, target FROM goals WHERE id = ?')
+  const row = await env.DB.prepare('SELECT title, target FROM goals WHERE id = ?')
     .bind(g.id).first<{ title: string; target: number }>();
   expect(row).toEqual({ title: 'Read', target: 1 });
 
   await archiveGoal(env.DB, 'u2', g.id);
-  row = await env.DB.prepare('SELECT active FROM goals WHERE id = ?')
-    .bind(g.id).first() as any;
-  expect(row.active).toBe(1);
+  const activeRow = await env.DB.prepare('SELECT active FROM goals WHERE id = ?')
+    .bind(g.id).first<{ active: number }>();
+  expect(activeRow?.active).toBe(1);
 });
 
 it('does not let updateSnapshot touch a locked day', async () => {
