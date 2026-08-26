@@ -3687,12 +3687,22 @@ export function RunOver() {
   if (!me) return <main className="grid min-h-dvh place-items-center">…</main>;
 
   const attempt = me.lastRun?.attempt_no ?? 1;
+  // A finished run and a failed run are opposite outcomes. They must never
+  // share a screen — see spec §5.5.
+  const finished = me.lastRun?.status === 'done';
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 p-6 text-center">
-      <h1 className="display text-5xl text-[var(--color-destructive)]">Run over</h1>
+      <h1
+        className="display text-5xl"
+        style={{ color: finished ? 'var(--color-success)' : 'var(--color-destructive)' }}
+      >
+        {finished ? '75 done' : 'Run over'}
+      </h1>
       <p className="text-lg">
-        Attempt {attempt} ended after three strikes.
+        {finished
+          ? `Attempt ${attempt} went the full 75 days.`
+          : `Attempt ${attempt} ended after three strikes.`}
       </p>
       <p className="text-sm text-[var(--color-muted)]">
         Nothing is deleted. Your goals and food lists carry over.
@@ -3706,7 +3716,7 @@ export function RunOver() {
         }}
         className="display mt-4 rounded-xl bg-[var(--color-primary)] py-4 text-lg disabled:opacity-50"
       >
-        {busy ? 'Starting…' : 'Start attempt ' + (attempt + 1)}
+        {busy ? 'Starting…' : `Start attempt ${attempt + 1}`}
       </button>
     </main>
   );

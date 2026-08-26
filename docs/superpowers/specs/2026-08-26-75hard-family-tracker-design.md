@@ -23,6 +23,7 @@ constraints, not suggestions.
 | Strike rule | **One strike per missed goal**, plus one per banned-food slip |
 | Strike limit | 3 strikes ends the run |
 | Reset | Back to Day 1, strikes cleared, previous attempt archived |
+| Completion | Surviving Day 75 ends the run as `done`; strikes take precedence (see §5.5) |
 | Backfill | Yesterday editable until 12:00 IST, then locked |
 | Food lists | Fully per-user |
 | Goal kinds | Checkbox, counter, duration |
@@ -47,7 +48,7 @@ incomplete goals ends the run. This was raised during design, alternatives were 
 deliberately. It is the intended behaviour. Do not soften it during implementation.
 
 A direct consequence: a single grading pass can append more than three strikes at once.
-The engine must handle overflow without error — see §5.5.
+The engine must handle overflow without error — see §5.6.
 
 ### Visual direction: "Iron"
 
@@ -340,7 +341,26 @@ Note that the lock window means day `D` is graded at noon on `D+1`, while day `D
 already in progress. Two days are live at once between midnight and noon. This is
 intended and is what "yesterday editable until noon" means.
 
-### 5.5 Reset
+### 5.5 Completion
+
+Surviving to Day 75 ends the run as a win.
+
+When a day locks with `day_number` 75 and the run has not failed, `runs.status`
+becomes `done` and `ended_date` is that day's date. A `done` run materialises and
+grades nothing further — `getActiveRun` filters on `status = 'active'`, so it drops
+out of every grading path naturally.
+
+Precedence: strikes are applied first. If Day 75's own strikes reach the limit, the
+run ends `failed`, not `done`. Completion is only reached by a run still alive after
+that day's strikes are appended.
+
+This rule was missing from the first version of this spec, which described the
+failure path in detail and never described the success path. Without it, a user who
+reached Day 75 kept having Days 76, 77 and 78 materialised and was struck out of the
+run they had just won. The UI must distinguish a `done` run from a `failed` one —
+they are opposite outcomes and must never share a screen.
+
+### 5.6 Reset
 
 After any strike append — from either source — if `COUNT(strikes) >= 3`:
 
@@ -357,7 +377,7 @@ the database and is reachable from the history view.
 strikes. The run fails. The ledger keeps all four; the UI displays `3/3`. The engine must
 not error, clamp on write, or skip appends. Test this case explicitly.
 
-### 5.6 Food slips
+### 5.7 Food slips
 
 Logging a slip is a two-step interaction:
 
@@ -416,7 +436,7 @@ DELETE /api/push/subscribe
 ```
 
 Slips are not deletable. A strike, once earned, stands. This is deliberate and matches
-the severity chosen for the strike rule; the confirmation dialog in §5.6 is what prevents
+the severity chosen for the strike rule; the confirmation dialog in §5.7 is what prevents
 mis-taps.
 
 Every request body is validated at the route boundary with Zod before reaching any logic.
