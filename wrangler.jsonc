@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "75hard",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-08-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": { "directory": "./dist/client", "not_found_handling": "single-page-application" },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "75hard", "database_id": "PLACEHOLDER_SET_BY_WRANGLER" }
+  ],
+  "triggers": { "crons": ["30 6 * * *", "30 15 * * *"] }
+}
