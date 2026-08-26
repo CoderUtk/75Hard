@@ -28,9 +28,19 @@ it('creates and retrieves an active run, and stops retrieving it once failed', a
 it('archives a goal without removing it from listings of the past', async () => {
   const g = await createGoal(env.DB, 'u1',
     { title: 'Read', kind: 'check', target: 1, unit: null, sortOrder: 0 });
+  await createGoal(env.DB, 'u1',
+    { title: 'Walk', kind: 'check', target: 1, unit: null, sortOrder: 1 });
+  expect(await listActiveGoals(env.DB, 'u1')).toHaveLength(2);
+  expect(await archiveGoal(env.DB, 'u1', g.id)).toBe(true);
   expect(await listActiveGoals(env.DB, 'u1')).toHaveLength(1);
-  await archiveGoal(env.DB, 'u1', g.id);
-  expect(await listActiveGoals(env.DB, 'u1')).toHaveLength(0);
+});
+
+it('refuses to archive the last active goal', async () => {
+  const g = await createGoal(env.DB, 'u1',
+    { title: 'Read', kind: 'check', target: 1, unit: null, sortOrder: 0 });
+  // An empty snapshot grades as passed, so zero goals would auto-pass the run.
+  expect(await archiveGoal(env.DB, 'u1', g.id)).toBe(false);
+  expect(await listActiveGoals(env.DB, 'u1')).toHaveLength(1);
 });
 
 it('upserts progress', async () => {
@@ -70,7 +80,14 @@ it('does not let a second user mutate the first user\'s goal', async () => {
     .bind(g.id).first<{ title: string; target: number }>();
   expect(row).toEqual({ title: 'Read', target: 1 });
 
-  await archiveGoal(env.DB, 'u2', g.id);
+  // u2 needs two goals of their own, or the last-active-goal guard would block
+  // the archive regardless of ownership and this assertion would prove nothing.
+  await createGoal(env.DB, 'u2',
+    { title: 'Own one', kind: 'check', target: 1, unit: null, sortOrder: 0 });
+  await createGoal(env.DB, 'u2',
+    { title: 'Own two', kind: 'check', target: 1, unit: null, sortOrder: 1 });
+
+  expect(await archiveGoal(env.DB, 'u2', g.id)).toBe(false);
   const activeRow = await env.DB.prepare('SELECT active FROM goals WHERE id = ?')
     .bind(g.id).first<{ active: number }>();
   expect(activeRow?.active).toBe(1);

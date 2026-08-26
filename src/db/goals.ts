@@ -53,8 +53,20 @@ export async function updateGoal(
   ).bind(g.title, g.kind, g.target, g.unit, g.sortOrder, id, userId).run();
 }
 
-/** Soft delete. Past day snapshots keep their copy of the goal. */
-export async function archiveGoal(db: D1Database, userId: string, id: string): Promise<void> {
-  await db.prepare('UPDATE goals SET active = 0, archived_at = ? WHERE id = ? AND user_id = ?')
-    .bind(Date.now(), id, userId).run();
+/** Soft delete. Past day snapshots keep their copy of the goal.
+ *
+ *  Refuses to archive a user's last active goal: `gradeDay` passes an empty
+ *  snapshot, so a user with zero goals would auto-pass every remaining day.
+ *  The count is a subquery rather than a prior SELECT so the check and the
+ *  write are one statement and cannot interleave with a concurrent archive.
+ *
+ *  Returns false if nothing was archived — wrong owner, already archived, or
+ *  it was the last one. */
+export async function archiveGoal(db: D1Database, userId: string, id: string): Promise<boolean> {
+  const res = await db.prepare(
+    `UPDATE goals SET active = 0, archived_at = ?
+      WHERE id = ? AND user_id = ? AND active = 1
+        AND (SELECT COUNT(*) FROM goals WHERE user_id = ? AND active = 1) > 1`,
+  ).bind(Date.now(), id, userId, userId).run();
+  return (res.meta.changes ?? 0) > 0;
 }

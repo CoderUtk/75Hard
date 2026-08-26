@@ -85,6 +85,20 @@ it('archives a goal and drops it from today\'s snapshot', async () => {
   expect(snap.map((g) => g.id)).not.toContain(victim.id);
 });
 
+it('refuses to archive the last remaining goal', async () => {
+  await onboard();
+  const goals = await (await req('/api/goals', 'GET')).json<{ id: string }[]>();
+  // Archive down to one, which must succeed, then the last one must not.
+  for (const g of goals.slice(0, -1)) {
+    expect((await req(`/api/goals/${g.id}`, 'DELETE')).status).toBe(200);
+  }
+  const last = goals.at(-1)!;
+  expect((await req(`/api/goals/${last.id}`, 'DELETE')).status).toBe(409);
+
+  const still = await (await req('/api/goals', 'GET')).json<{ id: string }[]>();
+  expect(still.map((g) => g.id)).toEqual([last.id]);
+});
+
 it('refuses to touch another user\'s goal', async () => {
   await onboard();
   await env.DB.prepare(

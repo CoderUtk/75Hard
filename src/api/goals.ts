@@ -56,7 +56,10 @@ goals.patch('/:id', async (c) => {
 
 goals.delete('/:id', async (c) => {
   const userId = c.get('user').id;
-  await archiveGoal(c.env.DB, userId, c.req.param('id'));
+  const archived = await archiveGoal(c.env.DB, userId, c.req.param('id'));
+  if (!archived) {
+    return c.json({ error: 'Keep at least one goal. Add another before removing this one.' }, 409);
+  }
   await refreshTodaySnapshot(c.env.DB, userId);
   return c.json({ ok: true });
 });
