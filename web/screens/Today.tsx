@@ -6,10 +6,13 @@ import { CounterSheet } from '../components/CounterSheet';
 import { StrikePips } from '../components/StrikePips';
 import { BottomNav } from '../components/BottomNav';
 
-const istDate = (offsetDays = 0) => {
-  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
-  const [y, m, d] = fmt.format(new Date()).split('-').map(Number) as [number, number, number];
-  return fmt.format(new Date(Date.UTC(y, m - 1, d + offsetDays, 12)));
+/** Pure calendar shift on a YYYY-MM-DD string. No clock, no timezone — the
+ *  date it shifts always came from the server. */
+const shiftDate = (iso: string, days: number) => {
+  const [y, m, d] = iso.split('-').map(Number) as [number, number, number];
+  const t = new Date(Date.UTC(y, m - 1, d + days));
+  return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, '0')}`
+       + `-${String(t.getUTCDate()).padStart(2, '0')}`;
 };
 
 const istHour = () =>
@@ -19,7 +22,12 @@ const istHour = () =>
 
 export function Today() {
   const [me, setMe] = useState<MeView | null>(null);
-  const [date, setDate] = useState(istDate());
+  // `date` and `serverToday` both come from the server. The device clock is
+  // never allowed to decide which day the user is writing to: a skewed phone
+  // would post today's work onto yesterday's row (still editable until noon),
+  // leaving today empty and earning a strike per goal for work actually done.
+  const [serverToday, setServerToday] = useState<string | null>(null);
+  const [date, setDate] = useState<string | null>(null);
   const [day, setDay] = useState<DayView | null>(null);
   const [sheet, setSheet] = useState<Goal | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -35,8 +43,17 @@ export function Today() {
       setError(null);
       if (m.needsOnboarding) return navigate('/onboarding', { replace: true });
       if (!m.run) return navigate('/run-over', { replace: true });
-      const d = await api.day(date);
+      setServerToday(m.today?.date ?? null);
+      const target = date ?? m.today?.date;
+      if (!target) {
+        setError('The server did not report a current date.');
+        return;
+      }
+      const d = await api.day(target);
       if (seq !== loadSeq.current) return;
+      // Only on the first load, where `date` is still null — assigning the
+      // same string back would re-run this effect for nothing.
+      if (date === null) setDate(d.date);
       setDay(d);
     } catch (e) {
       if (seq !== loadSeq.current) return;
@@ -51,7 +68,7 @@ export function Today() {
   useEffect(() => { void load(); }, [load]);
 
   async function write(goalId: string, value: number) {
-    if (!day) return;
+    if (!day || !date) return;
     // Optimistic, then reconcile — a grading pass may have ended the run.
     setDay((d) => d && { ...d, progress: { ...d.progress, [goalId]: value } });
     let failure: string | null = null;
@@ -66,13 +83,15 @@ export function Today() {
     if (failure) setError(failure);
   }
 
-  if (!me?.run || !day) {
+  if (!me?.run || !day || !date || !serverToday) {
     return <main className="grid min-h-dvh place-items-center text-[var(--color-muted)]">Loading…</main>;
   }
 
+  // Only decides whether to OFFER the yesterday view; the server is the
+  // authority on whether the write is accepted (`day.editable`).
   const graceOpen = istHour() < 12;
-  const yesterday = istDate(-1);
-  const viewingToday = date === istDate();
+  const yesterday = shiftDate(serverToday, -1);
+  const viewingToday = date === serverToday;
   const canShowYesterday = graceOpen && yesterday >= me.run.start_date;
 
   return (
@@ -92,7 +111,7 @@ export function Today() {
 
         {(canShowYesterday || !viewingToday) && (
           <button
-            onClick={() => { setDay(null); setDate(viewingToday ? yesterday : istDate()); }}
+            onClick={() => { setDay(null); setDate(viewingToday ? yesterday : serverToday); }}
             className="display mt-3 w-full rounded-xl border border-[var(--color-primary)]
                        py-3 text-xs text-[var(--color-primary)]"
           >
