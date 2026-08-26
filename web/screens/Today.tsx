@@ -54,13 +54,16 @@ export function Today() {
     if (!day) return;
     // Optimistic, then reconcile — a grading pass may have ended the run.
     setDay((d) => d && { ...d, progress: { ...d.progress, [goalId]: value } });
+    let failure: string | null = null;
     try {
       await api.setProgress(date, goalId, value);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Could not reach the server');
-    } finally {
-      await load();
+      failure = e instanceof ApiError ? e.message : 'Could not reach the server';
     }
+    // Reconcile first: load() clears `error` on success, so surface the
+    // write failure afterwards or it would be wiped before the user sees it.
+    await load();
+    if (failure) setError(failure);
   }
 
   if (!me?.run || !day) {
