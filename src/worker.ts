@@ -1,4 +1,5 @@
 import api from './api/router';
+import { runDailyLock } from './services/cron';
 
 export interface Env {
   DB: D1Database;
@@ -12,7 +13,14 @@ export default {
     return env.ASSETS.fetch(req);
   },
 
-  async scheduled(_event: ScheduledController, _env: Env): Promise<void> {
-    // wired up in Task 12
+  async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    const now = new Date(event.scheduledTime);
+    // "30 6 * * *" is 12:00 IST — the daily lock.
+    // "30 15 * * *" is 21:00 IST — the nudge push, added in Phase 5.
+    if (event.cron === '30 6 * * *') {
+      ctx.waitUntil(runDailyLock(env.DB, now).then(({ graded }) => {
+        console.log(`daily lock graded ${graded} users`);
+      }));
+    }
   },
 } satisfies ExportedHandler<Env>;
