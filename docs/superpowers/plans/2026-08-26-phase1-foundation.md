@@ -2972,42 +2972,44 @@ export function BottomNav() {
 
 - [ ] **Step 8: Create `web/main.tsx`**
 
+Screens arrive one per task in Tasks 14–17, each adding its own route. This
+version imports none of them, so the shell builds and ships on its own.
+
 ```tsx
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import './theme.css';
-import { Today } from './screens/Today';
-import { Login } from './screens/Login';
-import { Onboarding } from './screens/Onboarding';
-import { GoalsEditor } from './screens/GoalsEditor';
-import { RunOver } from './screens/RunOver';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/onboarding" element={<Onboarding />} />
-        <Route path="/today" element={<Today />} />
-        <Route path="/me" element={<GoalsEditor />} />
-        <Route path="/run-over" element={<RunOver />} />
-        <Route path="*" element={<Navigate to="/today" replace />} />
+        {/* Screens are added here by Tasks 14-17. */}
+        <Route
+          path="*"
+          element={
+            <main className="grid min-h-dvh place-items-center text-[var(--color-muted)]">
+              Loading…
+            </main>
+          }
+        />
       </Routes>
     </BrowserRouter>
   </StrictMode>,
 );
 ```
 
-- [ ] **Step 9: Add the build script check**
+- [ ] **Step 9: Typecheck and build**
 
-Run: `npm run build`
-Expected: fails, because the screen modules do not exist yet. That is the next four tasks. Do not commit a broken build — go straight to Task 14 and commit at the end of Task 17.
+Run: `npx tsc --noEmit && npm run build`
+Expected: both succeed. `dist/client/index.html` exists.
 
-- [ ] **Step 10: Stage the work without committing**
+- [ ] **Step 10: Commit**
 
 ```bash
-git add vite.config.ts web package.json
+git add vite.config.ts web package.json package-lock.json
+git commit -m "feat: spa shell with iron theme, api client, and bottom nav"
 ```
 
 ---
@@ -3116,10 +3118,24 @@ export function Login() {
 }
 ```
 
-- [ ] **Step 2: Stage**
+- [ ] **Step 2: Add the route in `web/main.tsx`**
+
+Add the import and the route, leaving the catch-all last:
+
+```tsx
+import { Login } from './screens/Login';
+// inside <Routes>, above the catch-all:
+        <Route path="/login" element={<Login />} />
+```
+
+- [ ] **Step 3: Typecheck, build, and commit**
+
+Run: `npx tsc --noEmit && npm run build`
+Expected: both succeed.
 
 ```bash
-git add web/screens/Login.tsx
+git add web/screens/Login.tsx web/main.tsx
+git commit -m "feat: pin login screen with name picker"
 ```
 
 ---
@@ -3216,10 +3232,22 @@ export function Onboarding() {
 }
 ```
 
-- [ ] **Step 2: Stage**
+- [ ] **Step 2: Add the route in `web/main.tsx`**
+
+```tsx
+import { Onboarding } from './screens/Onboarding';
+// inside <Routes>, above the catch-all:
+        <Route path="/onboarding" element={<Onboarding />} />
+```
+
+- [ ] **Step 3: Typecheck, build, and commit**
+
+Run: `npx tsc --noEmit && npm run build`
+Expected: both succeed.
 
 ```bash
-git add web/screens/Onboarding.tsx
+git add web/screens/Onboarding.tsx web/main.tsx
+git commit -m "feat: onboarding screen with variant presets"
 ```
 
 ---
@@ -3473,10 +3501,29 @@ export function Today() {
 }
 ```
 
-- [ ] **Step 4: Stage**
+- [ ] **Step 4: Add the route in `web/main.tsx`**
+
+```tsx
+import { Today } from './screens/Today';
+// inside <Routes>, above the catch-all:
+        <Route path="/today" element={<Today />} />
+```
+
+Also change the catch-all element to redirect, now that a real destination
+exists — add `Navigate` to the `react-router-dom` import:
+
+```tsx
+        <Route path="*" element={<Navigate to="/today" replace />} />
+```
+
+- [ ] **Step 5: Typecheck, build, and commit**
+
+Run: `npx tsc --noEmit && npm run build`
+Expected: both succeed.
 
 ```bash
-git add web/screens/Today.tsx web/components/GoalRow.tsx web/components/CounterSheet.tsx
+git add web/screens/Today.tsx web/components/GoalRow.tsx web/components/CounterSheet.tsx web/main.tsx
+git commit -m "feat: today screen with goal rows and counter sheet"
 ```
 
 ---
@@ -3666,21 +3713,26 @@ export function RunOver() {
 }
 ```
 
-- [ ] **Step 3: Build and typecheck**
+- [ ] **Step 3: Add both routes in `web/main.tsx`**
 
-Run: `npx tsc --noEmit && npm run build`
-Expected: both succeed. `dist/client/index.html` exists.
+```tsx
+import { GoalsEditor } from './screens/GoalsEditor';
+import { RunOver } from './screens/RunOver';
+// inside <Routes>, above the catch-all:
+        <Route path="/me" element={<GoalsEditor />} />
+        <Route path="/run-over" element={<RunOver />} />
+```
 
-- [ ] **Step 4: Run the whole suite one more time**
+- [ ] **Step 4: Typecheck, build, and run the whole suite**
 
-Run: `npm test`
-Expected: PASS.
+Run: `npx tsc --noEmit && npm run build && npm test`
+Expected: all three succeed. `dist/client/index.html` exists.
 
-- [ ] **Step 5: Commit the whole frontend**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add vite.config.ts web package.json package-lock.json
-git commit -m "feat: iron-themed spa with login, onboarding, today, goals editor, and reset"
+git add web/screens/GoalsEditor.tsx web/screens/RunOver.tsx web/main.tsx
+git commit -m "feat: goals editor and run-over reset screens"
 ```
 
 ---
