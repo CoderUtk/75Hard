@@ -7,10 +7,17 @@ const todayIST = () =>
 
 export function Onboarding() {
   const [variant, setVariant] = useState<'hard' | 'soft'>('hard');
-  const [startDate, setStartDate] = useState(todayIST());
+  const startDate = todayIST();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
+
+  const displayDate = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  }).format(new Date());
 
   async function start() {
     setBusy(true);
@@ -48,15 +55,10 @@ export function Onboarding() {
         </button>
       ))}
 
-      <label className="flex flex-col gap-2">
-        <span className="display text-xs text-[var(--color-muted)]">Start date</span>
-        <input
-          type="date"
-          value={startDate}
-          onChange={(e) => setStartDate(e.target.value)}
-          className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-3 text-base"
-        />
-      </label>
+      <div className="flex flex-col gap-1">
+        <span className="display text-xs text-[var(--color-muted)]">Starting today</span>
+        <p className="text-base">{displayDate}</p>
+      </div>
 
       <p className="text-sm text-[var(--color-muted)]">
         Every goal you miss is a strike. Three strikes and you go back to Day 1.
