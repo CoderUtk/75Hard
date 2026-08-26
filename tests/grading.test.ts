@@ -3,7 +3,7 @@ import { it, expect, beforeAll, beforeEach } from 'vitest';
 import { catchUpGrading, lastGradableDate, ensureDay } from '../src/services/grading';
 import { createRun, getActiveRun, listRuns } from '../src/db/runs';
 import { createGoal, listActiveGoals, toSnapshot } from '../src/db/goals';
-import { listDays, setProgress, getDay } from '../src/db/days';
+import { listDays, setProgress, getDay, lockDay } from '../src/db/days';
 import { countStrikes, listStrikes } from '../src/db/strikes';
 import { datesBetween } from '../src/lib/dates';
 
@@ -140,18 +140,22 @@ it('completes the run on day 75 and does not materialise day 76', async () => {
   expect(await getDay(env.DB, run.id, '2026-08-27')).toBeNull(); // no day 76
 });
 
-it('runs two concurrent grading passes over the same day without double-charging', async () => {
+it('a day claimed by another writer before this pass runs is never re-graded', async () => {
   await oneCheckGoal();
   const run = await createRun(env.DB, 'u1', 'hard', '2026-08-26', 1);
-  await ensureDay(env.DB, run, '2026-08-26', 'u1', afterNoon('2026-08-26'));
-  // Goal left unmet — a single pass would append exactly one strike.
+  const day = await ensureDay(env.DB, run, '2026-08-26', 'u1', afterNoon('2026-08-26'));
+  // Goal left unmet — this day would fail (and add a strike) if graded.
 
-  await Promise.all([
-    catchUpGrading(env.DB, 'u1', afterNoon('2026-08-27')),
-    catchUpGrading(env.DB, 'u1', afterNoon('2026-08-27')),
-  ]);
+  // Simulate a concurrent winning pass: claim the day directly, exactly as
+  // catchUpGrading's own lockDay call would.
+  const claimed = await lockDay(env.DB, day.id, 'failed', afterNoon('2026-08-27').getTime());
+  expect(claimed).toBe(true);
 
-  expect(await countStrikes(env.DB, run.id)).toBe(1);
+  // This pass's own listUnlockedDays query now excludes the day entirely
+  // (locked_at IS NULL), so it must not touch it.
+  await catchUpGrading(env.DB, 'u1', afterNoon('2026-08-27'));
+
+  expect(await countStrikes(env.DB, run.id)).toBe(0);
 });
 
 it('runs two concurrent passes materialising the same missing day without throwing', async () => {
