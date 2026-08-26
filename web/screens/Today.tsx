@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, type DayView, type Goal, type MeView } from '../api';
+import { api, ApiError, type DayView, type Goal, type MeView } from '../api';
 import { GoalRow } from '../components/GoalRow';
 import { CounterSheet } from '../components/CounterSheet';
 import { StrikePips } from '../components/StrikePips';
@@ -22,17 +22,29 @@ export function Today() {
   const [date, setDate] = useState(istDate());
   const [day, setDay] = useState<DayView | null>(null);
   const [sheet, setSheet] = useState<Goal | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const loadSeq = useRef(0);
 
   const load = useCallback(async () => {
+    const seq = ++loadSeq.current;
     try {
       const m = await api.me();
+      if (seq !== loadSeq.current) return;
       setMe(m);
+      setError(null);
       if (m.needsOnboarding) return navigate('/onboarding', { replace: true });
       if (!m.run) return navigate('/run-over', { replace: true });
-      setDay(await api.day(date));
-    } catch {
-      navigate('/login', { replace: true });
+      const d = await api.day(date);
+      if (seq !== loadSeq.current) return;
+      setDay(d);
+    } catch (e) {
+      if (seq !== loadSeq.current) return;
+      if (e instanceof ApiError && e.status === 401) {
+        navigate('/login', { replace: true });
+      } else {
+        setError(e instanceof ApiError ? e.message : 'Could not reach the server');
+      }
     }
   }, [date, navigate]);
 
@@ -41,9 +53,11 @@ export function Today() {
   async function write(goalId: string, value: number) {
     if (!day) return;
     // Optimistic, then reconcile — a grading pass may have ended the run.
-    setDay({ ...day, progress: { ...day.progress, [goalId]: value } });
+    setDay((d) => d && { ...d, progress: { ...d.progress, [goalId]: value } });
     try {
       await api.setProgress(date, goalId, value);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Could not reach the server');
     } finally {
       await load();
     }
@@ -73,9 +87,9 @@ export function Today() {
           <StrikePips used={me.strikes?.used ?? 0} limit={me.strikes?.limit ?? 3} />
         </div>
 
-        {canShowYesterday && (
+        {(canShowYesterday || !viewingToday) && (
           <button
-            onClick={() => setDate(viewingToday ? yesterday : istDate())}
+            onClick={() => { setDay(null); setDate(viewingToday ? yesterday : istDate()); }}
             className="display mt-3 w-full rounded-xl border border-[var(--color-primary)]
                        py-3 text-xs text-[var(--color-primary)]"
           >
@@ -83,8 +97,14 @@ export function Today() {
           </button>
         )}
 
+        {error && (
+          <p role="alert" className="mt-3 text-[var(--color-destructive)]">
+            {error}
+          </p>
+        )}
+
         {!day.editable && (
-          <p className="mt-3 text-sm text-[var(--color-muted)]">
+          <p className="mt-3 text-[var(--color-muted)]">
             This day is locked. {day.state === 'failed' ? 'Goals were missed.' : 'All goals met.'}
           </p>
         )}

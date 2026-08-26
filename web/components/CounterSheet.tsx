@@ -16,6 +16,7 @@ export function CounterSheet({
       role="dialog" aria-modal="true" aria-label={goal.title}
       className="fixed inset-0 z-50 flex items-end bg-black/50"
       onClick={onClose}
+      onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
     >
       <div
         className="w-full rounded-t-2xl border-t border-[var(--color-border)]
@@ -25,7 +26,7 @@ export function CounterSheet({
       >
         <div className="mb-6 flex items-center justify-between">
           <h2 className="display text-xl">{goal.title}</h2>
-          <button onClick={onClose} aria-label="Close"><X size={22} aria-hidden /></button>
+          <button onClick={onClose} aria-label="Close" autoFocus><X size={22} aria-hidden /></button>
         </div>
 
         <div className="flex items-center justify-between">
@@ -39,7 +40,7 @@ export function CounterSheet({
 
           <div className="text-center">
             <div className="tabular display text-5xl">{value}</div>
-            <div className="text-sm text-[var(--color-muted)]">
+            <div className="text-[var(--color-muted)]">
               of {goal.target} {goal.unit ?? ''}
             </div>
           </div>
