@@ -12,6 +12,8 @@ export function getDay(db: D1Database, runId: string, date: string): Promise<Day
     .bind(runId, date).first<DayRow>();
 }
 
+/** Idempotent at the DB level: on a concurrent conflict, the losing pass
+ *  drops its own insert and returns whichever row actually landed. */
 export async function createDay(
   db: D1Database, runId: string, date: string,
   dayNumber: number, snapshot: GoalSnapshot[],
@@ -19,12 +21,12 @@ export async function createDay(
   const id = newId();
   await db.prepare(
     `INSERT INTO days (id,run_id,date,day_number,state,goals_snapshot)
-     VALUES (?,?,?,?,'open',?)`,
+     VALUES (?,?,?,?,'open',?)
+     ON CONFLICT (run_id, date) DO NOTHING`,
   ).bind(id, runId, date, dayNumber, JSON.stringify(snapshot)).run();
-  return {
-    id, run_id: runId, date, day_number: dayNumber,
-    state: 'open', goals_snapshot: JSON.stringify(snapshot), locked_at: null,
-  };
+  const row = await getDay(db, runId, date);
+  if (!row) throw new Error(`createDay: row missing after insert for ${runId}/${date}`);
+  return row;
 }
 
 export async function listUnlockedDays(

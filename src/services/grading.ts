@@ -2,12 +2,14 @@ import {
   todayIST, istMinutes, addDays, dayNumber, datesBetween, LOCK_HOUR_MINUTES,
 } from '../lib/dates';
 import { gradeDay, isRunOver, type GoalSnapshot } from '../lib/rules';
-import { getActiveRun, failRun, type RunRow } from '../db/runs';
+import { getActiveRun, failRun, completeRun, type RunRow } from '../db/runs';
 import { listActiveGoals, toSnapshot } from '../db/goals';
 import {
   getDay, createDay, listUnlockedDays, lockDay, getProgress, type DayRow,
 } from '../db/days';
 import { addStrikes, countStrikes } from '../db/strikes';
+
+const RUN_LENGTH = 75;
 
 /** The most recent date whose lock window has closed.
  *  Day D locks at 12:00 IST on D+1, so before noon only D-2 is gradable. */
@@ -33,12 +35,12 @@ export async function ensureDay(
  */
 export async function catchUpGrading(
   db: D1Database, userId: string, now: Date,
-): Promise<{ runFailed: boolean }> {
+): Promise<{ runFailed: boolean; runCompleted: boolean }> {
   const run = await getActiveRun(db, userId);
-  if (!run) return { runFailed: false };
+  if (!run) return { runFailed: false, runCompleted: false };
 
   const today = todayIST(now);
-  if (run.start_date > today) return { runFailed: false };
+  if (run.start_date > today) return { runFailed: false, runCompleted: false };
 
   // 1. Materialise gaps. Up to yesterday — today's row is created on demand
   //    so that a same-day goal edit is reflected in its snapshot.
@@ -51,7 +53,7 @@ export async function catchUpGrading(
 
   // 2. Grade everything whose window has closed, oldest first.
   const cutoff = lastGradableDate(now);
-  if (cutoff < run.start_date) return { runFailed: false };
+  if (cutoff < run.start_date) return { runFailed: false, runCompleted: false };
 
   const at = now.getTime();
   for (const day of await listUnlockedDays(db, run.id, cutoff)) {
@@ -70,9 +72,15 @@ export async function catchUpGrading(
 
     if (isRunOver(await countStrikes(db, run.id))) {
       await failRun(db, run.id, today);
-      return { runFailed: true };
+      return { runFailed: true, runCompleted: false };
+    }
+
+    // The run survived this day's strikes. If this was Day 75, the run is won.
+    if (day.day_number >= RUN_LENGTH) {
+      await completeRun(db, run.id, day.date);
+      return { runFailed: false, runCompleted: true };
     }
   }
 
-  return { runFailed: false };
+  return { runFailed: false, runCompleted: false };
 }

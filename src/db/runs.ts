@@ -31,6 +31,11 @@ export async function failRun(db: D1Database, runId: string, endedDate: string):
     .bind(endedDate, runId).run();
 }
 
+export async function completeRun(db: D1Database, runId: string, endedDate: string): Promise<void> {
+  await db.prepare("UPDATE runs SET status = 'done', ended_date = ? WHERE id = ?")
+    .bind(endedDate, runId).run();
+}
+
 export function listRuns(db: D1Database, userId: string): Promise<D1Result<RunRow>> {
   return db.prepare('SELECT * FROM runs WHERE user_id = ? ORDER BY attempt_no DESC')
     .bind(userId).all<RunRow>();
