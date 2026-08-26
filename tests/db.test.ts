@@ -1,0 +1,58 @@
+import { env, applyD1Migrations } from 'cloudflare:test';
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { createRun, getActiveRun, failRun } from '../src/db/runs';
+import { createGoal, listActiveGoals, archiveGoal, toSnapshot } from '../src/db/goals';
+import { createDay, getProgress, setProgress, lockDay } from '../src/db/days';
+import { addStrikes, countStrikes } from '../src/db/strikes';
+
+beforeAll(async () => { await applyD1Migrations(env.DB, env.MIGRATIONS); });
+
+beforeEach(async () => {
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM strikes'), env.DB.prepare('DELETE FROM progress'),
+    env.DB.prepare('DELETE FROM days'), env.DB.prepare('DELETE FROM goals'),
+    env.DB.prepare('DELETE FROM runs'), env.DB.prepare('DELETE FROM users'),
+  ]);
+  await env.DB.prepare(
+    "INSERT INTO users (id,name,color,pin_hash,pin_salt,created_at) VALUES ('u1','A','#EA580C','h','s',1)",
+  ).run();
+});
+
+it('creates and retrieves an active run, and stops retrieving it once failed', async () => {
+  const run = await createRun(env.DB, 'u1', 'hard', '2026-08-26', 1);
+  expect((await getActiveRun(env.DB, 'u1'))?.id).toBe(run.id);
+  await failRun(env.DB, run.id, '2026-08-30');
+  expect(await getActiveRun(env.DB, 'u1')).toBeNull();
+});
+
+it('archives a goal without removing it from listings of the past', async () => {
+  const g = await createGoal(env.DB, 'u1',
+    { title: 'Read', kind: 'check', target: 1, unit: null, sortOrder: 0 });
+  expect(await listActiveGoals(env.DB, 'u1')).toHaveLength(1);
+  await archiveGoal(env.DB, 'u1', g.id);
+  expect(await listActiveGoals(env.DB, 'u1')).toHaveLength(0);
+});
+
+it('upserts progress', async () => {
+  const run = await createRun(env.DB, 'u1', 'hard', '2026-08-26', 1);
+  const goals = toSnapshot([await createGoal(env.DB, 'u1',
+    { title: 'Water', kind: 'count', target: 4, unit: 'glasses', sortOrder: 0 })]);
+  const day = await createDay(env.DB, run.id, '2026-08-26', 1, goals);
+
+  await setProgress(env.DB, day.id, goals[0]!.id, 2);
+  await setProgress(env.DB, day.id, goals[0]!.id, 3);
+  expect(await getProgress(env.DB, day.id)).toEqual({ [goals[0]!.id]: 3 });
+});
+
+it('locks a day exactly once', async () => {
+  const run = await createRun(env.DB, 'u1', 'hard', '2026-08-26', 1);
+  const day = await createDay(env.DB, run.id, '2026-08-26', 1, []);
+  expect(await lockDay(env.DB, day.id, 'passed', 111)).toBe(true);
+  expect(await lockDay(env.DB, day.id, 'failed', 222)).toBe(false);
+});
+
+it('appends every strike without clamping', async () => {
+  const run = await createRun(env.DB, 'u1', 'hard', '2026-08-26', 1);
+  await addStrikes(env.DB, run.id, '2026-08-26', 'missed_goal', ['g1','g2','g3','g4'], 1);
+  expect(await countStrikes(env.DB, run.id)).toBe(4);
+});
