@@ -1,11 +1,15 @@
 import { env, SELF, applyD1Migrations } from 'cloudflare:test';
 import { it, expect, beforeAll, beforeEach } from 'vitest';
 import { hashPin } from '../src/lib/password';
+import { createRun } from '../src/db/runs';
+import { ensureDay } from '../src/services/grading';
+import { todayIST, addDays } from '../src/lib/dates';
 
 beforeAll(async () => { await applyD1Migrations(env.DB, env.MIGRATIONS); });
 
 beforeEach(async () => {
   await env.DB.batch([
+    env.DB.prepare('DELETE FROM days'), env.DB.prepare('DELETE FROM runs'),
     env.DB.prepare('DELETE FROM sessions'), env.DB.prepare('DELETE FROM users'),
   ]);
   const { hash, salt } = await hashPin('1234');
@@ -66,6 +70,32 @@ it('refuses protected routes without a session', async () => {
 it('accepts protected routes with a session', async () => {
   const login = await post('/api/auth/login', { userId: 'u1', pin: '1234' });
   const cookie = (login.headers.get('set-cookie') ?? '').split(';')[0]!;
+  const res = await SELF.fetch('https://example.com/api/me', { headers: { cookie } });
+  expect(res.status).toBe(200);
+});
+
+it('rejects an expired session', async () => {
+  const login = await post('/api/auth/login', { userId: 'u1', pin: '1234' });
+  const cookie = (login.headers.get('set-cookie') ?? '').split(';')[0]!;
+  await env.DB.prepare('UPDATE sessions SET expires_at = ? WHERE user_id = ?')
+    .bind(Date.now() - 1000, 'u1').run();
+
+  const res = await SELF.fetch('https://example.com/api/me', { headers: { cookie } });
+  expect(res.status).toBe(401);
+});
+
+it('does not 500 an authenticated route when a day has a corrupt grading snapshot', async () => {
+  const login = await post('/api/auth/login', { userId: 'u1', pin: '1234' });
+  const cookie = (login.headers.get('set-cookie') ?? '').split(';')[0]!;
+
+  // A run with a gradable day whose snapshot is unreadable JSON — the kind
+  // of row `catchUpGrading` can hit on its backstop pass inside requireAuth.
+  const start = addDays(todayIST(new Date()), -3);
+  const run = await createRun(env.DB, 'u1', 'hard', start, 1);
+  const day = await ensureDay(env.DB, run, start, 'u1', new Date());
+  await env.DB.prepare('UPDATE days SET goals_snapshot = ? WHERE id = ?')
+    .bind('not json', day.id).run();
+
   const res = await SELF.fetch('https://example.com/api/me', { headers: { cookie } });
   expect(res.status).toBe(200);
 });

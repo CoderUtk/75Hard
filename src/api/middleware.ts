@@ -20,7 +20,14 @@ export async function requireAuth(c: Context<App>, next: Next) {
   c.set('user', user);
 
   // Backstop for a missed cron. Idempotent — see services/grading.ts.
-  await catchUpGrading(c.env.DB, user.id, new Date());
+  // Fail open: grading is a backstop, not the authority (the noon cron
+  // grades independently and the next request retries), so a bad row here
+  // must degrade to stale strike data, never lock the user out of the app.
+  try {
+    await catchUpGrading(c.env.DB, user.id, new Date());
+  } catch (err) {
+    console.error('catchUpGrading failed', { userId: user.id, err });
+  }
 
   await next();
 }
