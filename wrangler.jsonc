@@ -6,7 +6,7 @@
   "compatibility_flags": ["nodejs_compat"],
   "assets": { "directory": "./dist/client", "not_found_handling": "single-page-application" },
   "d1_databases": [
-    { "binding": "DB", "database_name": "75hard", "database_id": "PLACEHOLDER_SET_BY_WRANGLER" }
+    { "binding": "DB", "database_name": "75hard", "database_id": "68d75d2e-6d2b-40b0-95a9-26db82b51905" }
   ],
   "triggers": { "crons": ["30 6 * * *", "30 15 * * *"] }
 }
