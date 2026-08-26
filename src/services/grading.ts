@@ -61,14 +61,17 @@ export async function catchUpGrading(
     const progress = await getProgress(db, day.id);
     const grade = gradeDay(snapshot, progress);
 
-    // Claim the day first. If another pass already locked it, skip entirely
-    // so its strikes are never appended twice.
-    const claimed = await lockDay(db, day.id, grade.state, at);
-    if (!claimed) continue;
-
+    // Append BEFORE claiming. The strikes_dedup unique index makes a repeat
+    // append a no-op, so a second pass cannot double-count; and if this
+    // isolate dies between the two statements the day stays unlocked, so the
+    // next pass redoes it. Claiming first would lose those strikes forever,
+    // because listUnlockedDays never revisits a locked day.
     if (grade.missedGoalIds.length > 0) {
       await addStrikes(db, run.id, day.date, 'missed_goal', grade.missedGoalIds, at);
     }
+
+    const claimed = await lockDay(db, day.id, grade.state, at);
+    if (!claimed) continue;
 
     if (isRunOver(await countStrikes(db, run.id))) {
       await failRun(db, run.id, today);

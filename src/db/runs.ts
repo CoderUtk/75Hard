@@ -35,13 +35,17 @@ export async function createRun(
   };
 }
 
+/** `AND status = 'active'` is load-bearing: two grading passes can race (cron and
+ *  the request-path backstop), and without it whichever UPDATE lands last wins —
+ *  letting a struck-out run finish as 'done', or a stale pass flip a finished run
+ *  to 'failed'. Only an active run may be ended, and only once. */
 export async function failRun(db: D1Database, runId: string, endedDate: string): Promise<void> {
-  await db.prepare("UPDATE runs SET status = 'failed', ended_date = ? WHERE id = ?")
+  await db.prepare("UPDATE runs SET status = 'failed', ended_date = ? WHERE id = ? AND status = 'active'")
     .bind(endedDate, runId).run();
 }
 
 export async function completeRun(db: D1Database, runId: string, endedDate: string): Promise<void> {
-  await db.prepare("UPDATE runs SET status = 'done', ended_date = ? WHERE id = ?")
+  await db.prepare("UPDATE runs SET status = 'done', ended_date = ? WHERE id = ? AND status = 'active'")
     .bind(endedDate, runId).run();
 }
 

@@ -1,6 +1,6 @@
 import { env, applyD1Migrations } from 'cloudflare:test';
 import { it, expect, beforeAll, beforeEach } from 'vitest';
-import { createRun, getActiveRun, failRun } from '../src/db/runs';
+import { createRun, getActiveRun, failRun, completeRun } from '../src/db/runs';
 import { createGoal, listActiveGoals, archiveGoal, updateGoal, toSnapshot } from '../src/db/goals';
 import { createDay, getProgress, setProgress, lockDay, updateSnapshot } from '../src/db/days';
 import { addStrikes, countStrikes } from '../src/db/strikes';
@@ -105,4 +105,28 @@ it('does not let updateSnapshot touch a locked day', async () => {
   const row = await env.DB.prepare('SELECT goals_snapshot FROM days WHERE id = ?')
     .bind(day.id).first<{ goals_snapshot: string }>();
   expect(row?.goals_snapshot).toBe(JSON.stringify(goals));
+});
+
+it('does not double-count a strike that is appended twice', async () => {
+  const run = await createRun(env.DB, 'u1', 'hard', '2026-08-26', 1);
+  // grading appends before it claims the day, so a second pass over the same
+  // day re-appends the identical rows. strikes_dedup must absorb them.
+  await addStrikes(env.DB, run.id, '2026-08-26', 'missed_goal', ['g1', 'g2'], 1);
+  await addStrikes(env.DB, run.id, '2026-08-26', 'missed_goal', ['g1', 'g2'], 999);
+  expect(await countStrikes(env.DB, run.id)).toBe(2);
+
+  // A different day is a different strike, not a duplicate.
+  await addStrikes(env.DB, run.id, '2026-08-27', 'missed_goal', ['g1'], 2);
+  expect(await countStrikes(env.DB, run.id)).toBe(3);
+});
+
+it('will not end a run that has already ended', async () => {
+  const run = await createRun(env.DB, 'u1', 'hard', '2026-08-26', 1);
+  await failRun(env.DB, run.id, '2026-08-30');
+
+  // A concurrent pass reaching day 75 must not turn a struck-out run into a win.
+  await completeRun(env.DB, run.id, '2026-11-08');
+  const row = await env.DB.prepare('SELECT status, ended_date FROM runs WHERE id = ?')
+    .bind(run.id).first<{ status: string; ended_date: string }>();
+  expect(row).toEqual({ status: 'failed', ended_date: '2026-08-30' });
 });
