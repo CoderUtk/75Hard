@@ -46,7 +46,7 @@ export function CounterSheet({
           </div>
 
           <button
-            onClick={() => setValue((v) => v + step)}
+            onClick={() => setValue((v) => Math.min(goal.target, v + step))}
             aria-label={`Increase by ${step}`}
             className="rounded-full bg-[var(--color-background)] p-4"
           >
