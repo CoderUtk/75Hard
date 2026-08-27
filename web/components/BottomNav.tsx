@@ -4,7 +4,7 @@ import { CalendarCheck, Utensils, Users, User } from 'lucide-react';
 const items = [
   { to: '/today',  label: 'Today',  Icon: CalendarCheck, enabled: true },
   { to: '/food',   label: 'Food',   Icon: Utensils,      enabled: true },
-  { to: '/family', label: 'Family', Icon: Users,         enabled: false },
+  { to: '/family', label: 'Family', Icon: Users,         enabled: true },
   { to: '/me',     label: 'Me',     Icon: User,          enabled: true },
 ];
 

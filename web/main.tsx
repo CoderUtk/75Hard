@@ -8,6 +8,7 @@ import { GoalsEditor } from './screens/GoalsEditor';
 import { RunOver } from './screens/RunOver';
 import { Food } from './screens/Food';
 import { FoodListEditor } from './screens/FoodListEditor';
+import { Family } from './screens/Family';
 import './theme.css';
 
 createRoot(document.getElementById('root')!).render(
@@ -19,6 +20,7 @@ createRoot(document.getElementById('root')!).render(
         <Route path="/today" element={<Today />} />
         <Route path="/food" element={<Food />} />
         <Route path="/food/:status" element={<FoodListEditor />} />
+        <Route path="/family" element={<Family />} />
         <Route path="/me" element={<GoalsEditor />} />
         <Route path="/run-over" element={<RunOver />} />
         <Route path="*" element={<Navigate to="/today" replace />} />
