@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Trash2 } from 'lucide-react';
+import { Trash2, ArrowLeft } from 'lucide-react';
 import { api, ApiError, type Goal, type GoalKind } from '../api';
 import { BottomNav } from '../components/BottomNav';
 
@@ -65,6 +65,13 @@ export function GoalsEditor() {
   return (
     <>
       <main className="mx-auto max-w-md p-4 pb-28">
+        <button
+          onClick={() => navigate('/me')}
+          aria-label="Back to Me"
+          className="mb-2 flex items-center gap-1 text-[var(--color-muted)]"
+        >
+          <ArrowLeft size={18} aria-hidden /> Me
+        </button>
         <h1 className="display mt-4 text-3xl">My goals</h1>
         <p className="mt-1 text-[var(--color-muted)]">
           Changes apply from today forward. Past days keep the goals they were graded against.
@@ -134,14 +141,6 @@ export function GoalsEditor() {
             {busy ? 'Adding…' : 'Add goal'}
           </button>
         </div>
-
-        <button
-          onClick={async () => { await api.logout(); navigate('/login', { replace: true }); }}
-          className="display mt-10 w-full rounded-xl border border-[var(--color-destructive)]
-                     py-3 text-sm text-[var(--color-destructive)]"
-        >
-          Log out
-        </button>
       </main>
       <BottomNav />
     </>

@@ -9,6 +9,7 @@ import { RunOver } from './screens/RunOver';
 import { Food } from './screens/Food';
 import { FoodListEditor } from './screens/FoodListEditor';
 import { Family } from './screens/Family';
+import { Me } from './screens/Me';
 import { History } from './screens/History';
 import { PinChange } from './screens/PinChange';
 import './theme.css';
@@ -23,7 +24,8 @@ createRoot(document.getElementById('root')!).render(
         <Route path="/food" element={<Food />} />
         <Route path="/food/:status" element={<FoodListEditor />} />
         <Route path="/family" element={<Family />} />
-        <Route path="/me" element={<GoalsEditor />} />
+        <Route path="/me" element={<Me />} />
+        <Route path="/me/goals" element={<GoalsEditor />} />
         <Route path="/me/history" element={<History />} />
         <Route path="/me/pin" element={<PinChange />} />
         <Route path="/run-over" element={<RunOver />} />
