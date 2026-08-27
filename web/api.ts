@@ -11,6 +11,12 @@ export type Run = {
   id: string; variant: 'hard' | 'soft'; attempt_no: number;
   start_date: string; status: 'active' | 'failed' | 'done'; ended_date: string | null;
 };
+export type FamilyMember = {
+  id: string; name: string; color: string;
+  variant: 'hard' | 'soft' | null; attemptNo: number | null;
+  dayNumber: number | null; strikes: number; strikeLimit: number;
+  status: 'active' | null; bestDay: number | null;
+};
 export type MeView = {
   user: PublicUser;
   run: Run | null;
@@ -83,4 +89,11 @@ export const api = {
       method: 'POST', body: JSON.stringify({ kind: 'slip', foodItemId }),
     }),
   deleteFoodLog: (id: string) => call<{ ok: true }>(`/api/food/log/${id}`, { method: 'DELETE' }),
+
+  family: () => call<FamilyMember[]>('/api/family'),
+  history: () => call<Run[]>('/api/history'),
+  changePin: (currentPin: string, newPin: string) =>
+    call<{ ok: true }>('/api/me/pin', {
+      method: 'POST', body: JSON.stringify({ currentPin, newPin }),
+    }),
 };
