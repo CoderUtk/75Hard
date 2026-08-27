@@ -59,3 +59,49 @@ export async function deleteFoodItem(db: D1Database, userId: string, id: string)
 export function isFoodItemNameConflict(err: unknown): boolean {
   return err instanceof Error && err.message.includes('UNIQUE constraint failed: food_items');
 }
+
+export type FoodLogRow = {
+  id: string; user_id: string; run_id: string; date: string;
+  kind: 'meal' | 'slip'; text: string | null; food_item_id: string | null; at: number;
+};
+
+export async function listFoodLog(db: D1Database, userId: string, date: string): Promise<FoodLogRow[]> {
+  const { results } = await db.prepare(
+    'SELECT * FROM food_log WHERE user_id = ? AND date = ? ORDER BY at',
+  ).bind(userId, date).all<FoodLogRow>();
+  return results;
+}
+
+export async function createMealLog(
+  db: D1Database, userId: string, runId: string, date: string, text: string, at: number,
+): Promise<FoodLogRow> {
+  const id = newId();
+  await db.prepare(
+    `INSERT INTO food_log (id,user_id,run_id,date,kind,text,food_item_id,at)
+     VALUES (?,?,?,?,'meal',?,NULL,?)`,
+  ).bind(id, userId, runId, date, text, at).run();
+  return { id, user_id: userId, run_id: runId, date, kind: 'meal', text, food_item_id: null, at };
+}
+
+/** Prepared, unexecuted — batched atomically with its strike row by
+ *  services/food.ts's logSlip, so a slip and its strike always land
+ *  together. `text` snapshots the item's name at log time — see the
+ *  global constraints on why this survives a later rename or delete. */
+export function createSlipLogStatement(
+  db: D1Database, id: string, userId: string, runId: string,
+  date: string, foodItemId: string, name: string, at: number,
+): D1PreparedStatement {
+  return db.prepare(
+    `INSERT INTO food_log (id,user_id,run_id,date,kind,text,food_item_id,at)
+     VALUES (?,?,?,?,'slip',?,?,?)`,
+  ).bind(id, userId, runId, date, name, foodItemId, at);
+}
+
+/** Meals only — ownership plus kind='meal' in the WHERE clause. Slips are
+ *  never deletable: a strike, once earned, stands (spec §6). */
+export async function deleteMealLog(db: D1Database, userId: string, id: string): Promise<boolean> {
+  const res = await db.prepare(
+    "DELETE FROM food_log WHERE id = ? AND user_id = ? AND kind = 'meal'",
+  ).bind(id, userId).run();
+  return (res.meta.changes ?? 0) > 0;
+}
