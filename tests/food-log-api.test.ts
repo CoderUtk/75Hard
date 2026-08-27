@@ -118,10 +118,12 @@ it('a slip survives its food item being deleted, keeping the name in the diary',
   const item = await req('/api/food/items', 'POST', { name: 'Beer', status: 'banned' })
     .then((r) => r.json<{ id: string }>());
   await req('/api/food/log', 'POST', { kind: 'slip', foodItemId: item.id });
-  await req(`/api/food/items/${item.id}`, 'DELETE');
+  const del = await req(`/api/food/items/${item.id}`, 'DELETE');
+  expect(del.status).toBe(200);
 
   const list = await req(`/api/food/log?date=${today}`, 'GET');
-  const entries = await list.json<{ text: string }[]>();
+  const entries = await list.json<{ text: string; food_item_id: string | null }[]>();
   expect(entries).toHaveLength(1);
   expect(entries[0]!.text).toBe('Beer');
+  expect(entries[0]!.food_item_id).toBeNull();
 });

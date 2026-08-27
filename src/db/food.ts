@@ -46,10 +46,19 @@ export async function updateFoodItem(
   return (res.meta.changes ?? 0) > 0;
 }
 
+/** Nulls out any food_log rows referencing this item before deleting it, in
+ *  one atomic `db.batch()` — the FK on food_log.food_item_id has no ON
+ *  DELETE clause, so deleting an item that's ever been logged as a slip
+ *  would otherwise 500 with a FOREIGN KEY constraint failure. A slip's
+ *  `text` already snapshots the item's name, so the diary entry survives
+ *  unchanged. */
 export async function deleteFoodItem(db: D1Database, userId: string, id: string): Promise<boolean> {
-  const res = await db.prepare('DELETE FROM food_items WHERE id = ? AND user_id = ?')
-    .bind(id, userId).run();
-  return (res.meta.changes ?? 0) > 0;
+  const res = await db.batch([
+    db.prepare('UPDATE food_log SET food_item_id = NULL WHERE food_item_id = ? AND user_id = ?')
+      .bind(id, userId),
+    db.prepare('DELETE FROM food_items WHERE id = ? AND user_id = ?').bind(id, userId),
+  ]);
+  return (res[1]?.meta.changes ?? 0) > 0;
 }
 
 /** True iff `err` is the UNIQUE(user_id,name) violation from createFoodItem
