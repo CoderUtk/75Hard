@@ -58,7 +58,9 @@ export function Today() {
       if (date === null) setDate(d.date);
       setDay(d);
       try {
-        setPhotoDates((await api.photos()).map((p) => p.date));
+        const dates = (await api.photos()).map((p) => p.date);
+        if (seq !== loadSeq.current) return;
+        setPhotoDates(dates);
       } catch {
         setPhotoDates([]);
       }
@@ -151,11 +153,13 @@ export function Today() {
           ))}
         </div>
 
-        <PhotoTile
-          date={serverToday}
-          hasPhoto={photoDates.includes(serverToday)}
-          onChange={() => { void load(); }}
-        />
+        {viewingToday && (
+          <PhotoTile
+            date={serverToday}
+            hasPhoto={photoDates.includes(serverToday)}
+            onChange={() => { void load(); }}
+          />
+        )}
       </main>
 
       {sheet && (

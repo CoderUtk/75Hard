@@ -54,6 +54,7 @@ export function History() {
                   src={api.photoUrl(p.date)}
                   alt={`Progress photo from ${p.date}`}
                   className="h-20 w-20 rounded-lg object-cover"
+                  loading="lazy"
                 />
                 <div className="mt-1 text-center text-[10px] text-[var(--color-muted)]">{p.date}</div>
               </button>
