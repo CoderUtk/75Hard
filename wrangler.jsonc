@@ -8,5 +8,8 @@
   "d1_databases": [
     { "binding": "DB", "database_name": "75hard", "database_id": "68d75d2e-6d2b-40b0-95a9-26db82b51905" }
   ],
+  "r2_buckets": [
+    { "binding": "PHOTOS", "bucket_name": "75hard-photos" }
+  ],
   "triggers": { "crons": ["30 6 * * *", "30 15 * * *"] }
 }

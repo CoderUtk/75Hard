@@ -85,16 +85,6 @@ CREATE TABLE strikes (
   at     INTEGER NOT NULL
 );
 
-CREATE TABLE photos (
-  id      TEXT PRIMARY KEY,
-  user_id TEXT NOT NULL REFERENCES users(id),
-  run_id  TEXT NOT NULL REFERENCES runs(id),
-  date    TEXT NOT NULL,
-  r2_key  TEXT NOT NULL,
-  at      INTEGER NOT NULL,
-  UNIQUE (user_id, date)
-);
-
 CREATE TABLE push_subs (
   id         TEXT PRIMARY KEY,
   user_id    TEXT NOT NULL REFERENCES users(id),
