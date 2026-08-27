@@ -32,8 +32,10 @@ export function PinChange() {
       setNewPin('');
       setConfirmPin('');
     } catch (e) {
-      if (e instanceof ApiError && e.status === 401) {
+      if (e instanceof ApiError && e.status === 401 && e.message === 'wrong current pin') {
         setError('Current PIN is wrong.');
+      } else if (e instanceof ApiError && e.status === 401) {
+        navigate('/login', { replace: true });
       } else {
         setError(e instanceof ApiError ? e.message : 'Could not reach the server');
       }
