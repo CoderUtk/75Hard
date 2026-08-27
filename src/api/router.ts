@@ -6,6 +6,7 @@ import { food } from './food';
 import { days } from './days';
 import { family } from './family';
 import { history } from './history';
+import { photos } from './photos';
 import { requireAuth, type App } from './middleware';
 
 export const api = new Hono<App>().basePath('/api');
@@ -25,5 +26,6 @@ api.route('/food', food);      // GET/POST /api/food/items, PATCH/DELETE /api/fo
 api.route('/days', days);      // GET /api/days/:date, PUT /api/days/:date/goals/:goalId
 api.route('/family', family);  // GET /api/family
 api.route('/history', history); // GET /api/history
+api.route('/photos', photos);   // GET/POST /api/photos, GET /api/photos/:date
 
 export default api;
