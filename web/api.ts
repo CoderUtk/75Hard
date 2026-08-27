@@ -20,6 +20,13 @@ export type MeView = {
   strikes?: { used: number; limit: number };
 };
 
+export type FoodItem = { id: string; name: string; status: 'allowed' | 'banned' };
+export type FoodLogEntry = {
+  id: string; date: string; kind: 'meal' | 'slip';
+  text: string | null; food_item_id: string | null; at: number;
+};
+export type SlipResult = { log: FoodLogEntry; strikeCount: number; limit: number; runFailed: boolean };
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
@@ -58,4 +65,22 @@ export const api = {
     call<Goal>('/api/goals', { method: 'POST', body: JSON.stringify(g) }),
   deleteGoal: (id: string) =>
     call<{ ok: true }>(`/api/goals/${id}`, { method: 'DELETE' }),
+
+  foodItems: () => call<FoodItem[]>('/api/food/items'),
+  addFoodItem: (name: string, status: 'allowed' | 'banned') =>
+    call<FoodItem>('/api/food/items', { method: 'POST', body: JSON.stringify({ name, status }) }),
+  updateFoodItem: (id: string, name: string, status: 'allowed' | 'banned') =>
+    call<{ ok: true }>(`/api/food/items/${id}`, { method: 'PATCH', body: JSON.stringify({ name, status }) }),
+  deleteFoodItem: (id: string) => call<{ ok: true }>(`/api/food/items/${id}`, { method: 'DELETE' }),
+
+  foodLog: (date: string) => call<FoodLogEntry[]>(`/api/food/log?date=${date}`),
+  logMeal: (text: string) =>
+    call<{ log: FoodLogEntry }>('/api/food/log', {
+      method: 'POST', body: JSON.stringify({ kind: 'meal', text }),
+    }),
+  logSlip: (foodItemId: string) =>
+    call<SlipResult>('/api/food/log', {
+      method: 'POST', body: JSON.stringify({ kind: 'slip', foodItemId }),
+    }),
+  deleteFoodLog: (id: string) => call<{ ok: true }>(`/api/food/log/${id}`, { method: 'DELETE' }),
 };
