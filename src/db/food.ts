@@ -1,11 +1,61 @@
 import { newId } from '../lib/ids';
 
+export type FoodItemRow = {
+  id: string; user_id: string; name: string; status: 'allowed' | 'banned';
+};
+
+export async function listFoodItems(db: D1Database, userId: string): Promise<FoodItemRow[]> {
+  const { results } = await db.prepare('SELECT * FROM food_items WHERE user_id = ? ORDER BY name')
+    .bind(userId).all<FoodItemRow>();
+  return results;
+}
+
+export function getFoodItem(db: D1Database, userId: string, id: string): Promise<FoodItemRow | null> {
+  return db.prepare('SELECT * FROM food_items WHERE id = ? AND user_id = ?')
+    .bind(id, userId).first<FoodItemRow>();
+}
+
 /** Prepared, unexecuted — for callers that need to submit it as part of a
- *  larger `db.batch()` (one implicit transaction) alongside other inserts. */
+ *  larger `db.batch()` (one implicit transaction) alongside other inserts.
+ *  Used by services/onboarding.ts to seed the Hard/Soft preset's starter
+ *  banned list alongside the run and goal rows. */
 export function createBannedFoodStatement(
   db: D1Database, userId: string, name: string,
 ): D1PreparedStatement {
   return db.prepare(
     "INSERT INTO food_items (id,user_id,name,status) VALUES (?,?,?,'banned')",
   ).bind(newId(), userId, name);
+}
+
+export async function createFoodItem(
+  db: D1Database, userId: string, name: string, status: 'allowed' | 'banned',
+): Promise<FoodItemRow> {
+  const id = newId();
+  await db.prepare('INSERT INTO food_items (id,user_id,name,status) VALUES (?,?,?,?)')
+    .bind(id, userId, name, status).run();
+  return { id, user_id: userId, name, status };
+}
+
+/** Ownership is the WHERE clause. Returns false for a wrong owner or a
+ *  missing id — the caller maps that to 404. */
+export async function updateFoodItem(
+  db: D1Database, userId: string, id: string, name: string, status: 'allowed' | 'banned',
+): Promise<boolean> {
+  const res = await db.prepare('UPDATE food_items SET name = ?, status = ? WHERE id = ? AND user_id = ?')
+    .bind(name, status, id, userId).run();
+  return (res.meta.changes ?? 0) > 0;
+}
+
+export async function deleteFoodItem(db: D1Database, userId: string, id: string): Promise<boolean> {
+  const res = await db.prepare('DELETE FROM food_items WHERE id = ? AND user_id = ?')
+    .bind(id, userId).run();
+  return (res.meta.changes ?? 0) > 0;
+}
+
+/** True iff `err` is the UNIQUE(user_id,name) violation from createFoodItem
+ *  or updateFoodItem — this user already has an item with this exact name.
+ *  Matched on the D1 error text for that index, same pattern as
+ *  services/onboarding.ts's isActiveRunConflict. */
+export function isFoodItemNameConflict(err: unknown): boolean {
+  return err instanceof Error && err.message.includes('UNIQUE constraint failed: food_items');
 }

@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { auth } from './auth';
 import { me } from './me';
 import { goals } from './goals';
+import { food } from './food';
 import { days } from './days';
 import { requireAuth, type App } from './middleware';
 
@@ -18,6 +19,7 @@ api.use('*', async (c, next) => {
 api.route('/me', me);          // GET /api/me
 api.route('/', me);            // POST /api/onboarding, POST /api/run/reset
 api.route('/goals', goals);    // GET/POST /api/goals, PATCH/DELETE /api/goals/:id
+api.route('/food', food);      // GET/POST /api/food/items, PATCH/DELETE /api/food/items/:id
 api.route('/days', days);      // GET /api/days/:date, PUT /api/days/:date/goals/:goalId
 
 export default api;
