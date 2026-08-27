@@ -74,10 +74,12 @@ export type FoodLogRow = {
   kind: 'meal' | 'slip'; text: string | null; food_item_id: string | null; at: number;
 };
 
-export async function listFoodLog(db: D1Database, userId: string, date: string): Promise<FoodLogRow[]> {
+export async function listFoodLog(
+  db: D1Database, userId: string, runId: string, date: string,
+): Promise<FoodLogRow[]> {
   const { results } = await db.prepare(
-    'SELECT * FROM food_log WHERE user_id = ? AND date = ? ORDER BY at',
-  ).bind(userId, date).all<FoodLogRow>();
+    'SELECT * FROM food_log WHERE user_id = ? AND run_id = ? AND date = ? ORDER BY at',
+  ).bind(userId, runId, date).all<FoodLogRow>();
   return results;
 }
 

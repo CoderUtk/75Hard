@@ -50,16 +50,18 @@ export function Food() {
   }
 
   async function confirmSlip(item: FoodItem) {
+    let failure: string | null = null;
     try {
       const result = await api.logSlip(item.id);
       if (result.runFailed) {
         navigate('/run-over', { replace: true });
         return;
       }
-      await load();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Could not reach the server');
+      failure = e instanceof ApiError ? e.message : 'Could not reach the server';
     }
+    await load();
+    if (failure) setError(failure);
   }
 
   if (!me?.run || !entries) {

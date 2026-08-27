@@ -24,9 +24,14 @@ beforeEach(async () => {
     env.DB.prepare('DELETE FROM users'),
   ]);
   const { hash, salt } = await hashPin('1234');
-  await env.DB.prepare(
-    'INSERT INTO users (id,name,color,pin_hash,pin_salt,created_at) VALUES (?,?,?,?,?,?)',
-  ).bind('u1', 'A', '#EA580C', hash, salt, Date.now()).run();
+  await env.DB.batch([
+    env.DB.prepare(
+      'INSERT INTO users (id,name,color,pin_hash,pin_salt,created_at) VALUES (?,?,?,?,?,?)',
+    ).bind('u1', 'A', '#EA580C', hash, salt, Date.now()),
+    env.DB.prepare(
+      'INSERT INTO users (id,name,color,pin_hash,pin_salt,created_at) VALUES (?,?,?,?,?,?)',
+    ).bind('u2', 'B', '#000000', hash, salt, Date.now()),
+  ]);
 
   const login = await SELF.fetch('https://example.com/api/auth/login', {
     method: 'POST', headers: { 'content-type': 'application/json' },
@@ -112,6 +117,57 @@ it('deletes a meal but refuses to delete a slip', async () => {
   const still = await env.DB.prepare('SELECT * FROM food_log WHERE id = ?')
     .bind(slip.log.id).first();
   expect(still).not.toBeNull();
+});
+
+it('a fresh run after a reset does not see the previous run\'s diary', async () => {
+  await req('/api/food/log', 'POST', { kind: 'meal', text: 'Old run meal' });
+  const oldRun = await getActiveRun(env.DB, 'u1');
+  await env.DB.prepare("UPDATE runs SET status='failed', ended_date=? WHERE id=?")
+    .bind(today, oldRun!.id).run();
+
+  const reset = await req('/api/run/reset', 'POST', {});
+  expect(reset.status).toBe(200);
+
+  const list = await req(`/api/food/log?date=${today}`, 'GET');
+  expect(list.status).toBe(200);
+  expect(await list.json<unknown[]>()).toHaveLength(0);
+});
+
+it('cannot see, delete, or slip against another user\'s food data', async () => {
+  const meal = await req('/api/food/log', 'POST', { kind: 'meal', text: 'A\'s meal' })
+    .then((r) => r.json<{ log: { id: string } }>());
+  const item = await req('/api/food/items', 'POST', { name: 'A-Banned', status: 'banned' })
+    .then((r) => r.json<{ id: string }>());
+
+  const loginB = await SELF.fetch('https://example.com/api/auth/login', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ userId: 'u2', pin: '1234' }),
+  });
+  const cookieB = (loginB.headers.get('set-cookie') ?? '').split(';')[0]!;
+  await SELF.fetch('https://example.com/api/onboarding', {
+    method: 'POST', headers: { 'content-type': 'application/json', cookie: cookieB },
+    body: JSON.stringify({ variant: 'soft', startDate: today }),
+  });
+
+  const listB = await SELF.fetch(`https://example.com/api/food/log?date=${today}`, {
+    method: 'GET', headers: { cookie: cookieB },
+  });
+  expect(listB.status).toBe(200);
+  expect(await listB.json<unknown[]>()).toHaveLength(0);
+
+  const delB = await SELF.fetch(`https://example.com/api/food/log/${meal.log.id}`, {
+    method: 'DELETE', headers: { cookie: cookieB },
+  });
+  expect(delB.status).toBe(404);
+  const stillThere = await env.DB.prepare('SELECT * FROM food_log WHERE id = ?')
+    .bind(meal.log.id).first();
+  expect(stillThere).not.toBeNull();
+
+  const slipB = await SELF.fetch('https://example.com/api/food/log', {
+    method: 'POST', headers: { 'content-type': 'application/json', cookie: cookieB },
+    body: JSON.stringify({ kind: 'slip', foodItemId: item.id }),
+  });
+  expect(slipB.status).toBe(404);
 });
 
 it('a slip survives its food item being deleted, keeping the name in the diary', async () => {

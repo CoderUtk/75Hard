@@ -64,6 +64,28 @@ it('updates and deletes only the owner\'s item', async () => {
   expect(gone).toBeNull();
 });
 
+it('never lists another user\'s food items', async () => {
+  await req('/api/food/items', 'POST', { name: 'A-Item', status: 'banned' });
+
+  const loginB = await SELF.fetch('https://example.com/api/auth/login', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ userId: 'u2', pin: '1234' }),
+  });
+  const cookieB = (loginB.headers.get('set-cookie') ?? '').split(';')[0]!;
+  await SELF.fetch('https://example.com/api/food/items', {
+    method: 'POST', headers: { 'content-type': 'application/json', cookie: cookieB },
+    body: JSON.stringify({ name: 'B-Item', status: 'allowed' }),
+  });
+
+  const listB = await SELF.fetch('https://example.com/api/food/items', {
+    method: 'GET', headers: { cookie: cookieB },
+  }).then((r) => r.json<{ name: string }[]>());
+  expect(listB.map((i) => i.name)).toEqual(['B-Item']);
+
+  const listA = await req('/api/food/items', 'GET').then((r) => r.json<{ name: string }[]>());
+  expect(listA.map((i) => i.name)).toEqual(['A-Item']);
+});
+
 it('404s a PATCH or DELETE from a user who does not own the item', async () => {
   const created = await req('/api/food/items', 'POST', { name: 'Beer', status: 'banned' })
     .then((r) => r.json<{ id: string }>());

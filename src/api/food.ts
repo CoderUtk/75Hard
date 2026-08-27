@@ -62,7 +62,10 @@ const logSchema = z.discriminatedUnion('kind', [
 food.get('/log', async (c) => {
   const date = c.req.query('date');
   if (!date || !DATE_RE.test(date)) return c.json({ error: 'bad date' }, 400);
-  return c.json(await listFoodLog(c.env.DB, c.get('user').id, date));
+  const user = c.get('user');
+  const run = await getActiveRun(c.env.DB, user.id);
+  if (!run) return c.json({ error: 'no active run' }, 404);
+  return c.json(await listFoodLog(c.env.DB, user.id, run.id, date));
 });
 
 food.post('/log', async (c) => {
