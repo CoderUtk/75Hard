@@ -33,6 +33,8 @@ export type FoodLogEntry = {
 };
 export type SlipResult = { log: FoodLogEntry; strikeCount: number; limit: number; runFailed: boolean };
 
+export type Photo = { date: string };
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
@@ -92,6 +94,20 @@ export const api = {
 
   family: () => call<FamilyMember[]>('/api/family'),
   history: () => call<Run[]>('/api/history'),
+  photos: () => call<Photo[]>('/api/photos'),
+  // multipart — must NOT go through call(), which forces application/json.
+  // Letting fetch set its own multipart boundary is the whole point.
+  uploadPhoto: async (blob: Blob): Promise<{ date: string }> => {
+    const body = new FormData();
+    body.append('photo', new File([blob], 'photo.jpg', { type: 'image/jpeg' }));
+    const res = await fetch('/api/photos', { method: 'POST', body });
+    if (!res.ok) {
+      const j = await res.json<{ error?: string }>().catch(() => ({}) as { error?: string });
+      throw new ApiError(res.status, j.error ?? res.statusText);
+    }
+    return res.json<{ date: string }>();
+  },
+  photoUrl: (date: string) => `/api/photos/${date}`,
   changePin: (currentPin: string, newPin: string) =>
     call<{ ok: true }>('/api/me/pin', {
       method: 'POST', body: JSON.stringify({ currentPin, newPin }),

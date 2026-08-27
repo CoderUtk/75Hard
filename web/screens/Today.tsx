@@ -5,6 +5,7 @@ import { GoalRow } from '../components/GoalRow';
 import { CounterSheet } from '../components/CounterSheet';
 import { StrikePips } from '../components/StrikePips';
 import { BottomNav } from '../components/BottomNav';
+import { PhotoTile } from '../components/PhotoTile';
 
 /** Pure calendar shift on a YYYY-MM-DD string. No clock, no timezone — the
  *  date it shifts always came from the server. */
@@ -31,6 +32,7 @@ export function Today() {
   const [day, setDay] = useState<DayView | null>(null);
   const [sheet, setSheet] = useState<Goal | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [photoDates, setPhotoDates] = useState<string[]>([]);
   const navigate = useNavigate();
   const loadSeq = useRef(0);
 
@@ -55,6 +57,13 @@ export function Today() {
       // same string back would re-run this effect for nothing.
       if (date === null) setDate(d.date);
       setDay(d);
+      try {
+        const dates = (await api.photos()).map((p) => p.date);
+        if (seq !== loadSeq.current) return;
+        setPhotoDates(dates);
+      } catch {
+        setPhotoDates([]);
+      }
     } catch (e) {
       if (seq !== loadSeq.current) return;
       if (e instanceof ApiError && e.status === 401) {
@@ -143,6 +152,14 @@ export function Today() {
             />
           ))}
         </div>
+
+        {viewingToday && (
+          <PhotoTile
+            date={serverToday}
+            hasPhoto={photoDates.includes(serverToday)}
+            onChange={() => { void load(); }}
+          />
+        )}
       </main>
 
       {sheet && (

@@ -1,15 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import { api, ApiError, type Run } from '../api';
+import { api, ApiError, type Run, type Photo } from '../api';
 import { BottomNav } from '../components/BottomNav';
+import { PhotoOverlay } from '../components/PhotoOverlay';
 
 export function History() {
   const [runs, setRuns] = useState<Run[] | null>(null);
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [openDate, setOpenDate] = useState<string | null>(null);
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
+    api.photos().then(setPhotos).catch(() => setPhotos([]));
     api.history().then((r) => { setRuns(r); setError(''); }).catch((e: unknown) => {
       if (e instanceof ApiError && e.status === 401) {
         navigate('/login', { replace: true });
@@ -37,6 +41,27 @@ export function History() {
         </button>
         <h1 className="display text-3xl">Run history</h1>
 
+        {photos.length > 0 && (
+          <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+            {photos.map((p) => (
+              <button
+                key={p.date}
+                onClick={() => setOpenDate(p.date)}
+                className="shrink-0"
+                aria-label={`Progress photo from ${p.date}`}
+              >
+                <img
+                  src={api.photoUrl(p.date)}
+                  alt={`Progress photo from ${p.date}`}
+                  className="h-20 w-20 rounded-lg object-cover"
+                  loading="lazy"
+                />
+                <div className="mt-1 text-center text-[10px] text-[var(--color-muted)]">{p.date}</div>
+              </button>
+            ))}
+          </div>
+        )}
+
         {error && <p role="alert" className="mt-2 text-sm text-[var(--color-destructive)]">{error}</p>}
 
         {runs === null ? null : runs.length === 0 ? (
@@ -61,6 +86,13 @@ export function History() {
         )}
       </main>
       <BottomNav />
+      {openDate && (
+        <PhotoOverlay
+          src={api.photoUrl(openDate)}
+          alt={`Progress photo from ${openDate}`}
+          onClose={() => setOpenDate(null)}
+        />
+      )}
     </>
   );
 }
