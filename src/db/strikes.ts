@@ -11,20 +11,26 @@ export async function countStrikes(db: D1Database, runId: string): Promise<numbe
   return row?.n ?? 0;
 }
 
-/** Appends one row per entry. Never clamps — see the global constraints.
- *
- *  `INSERT OR IGNORE` against the `strikes_dedup` unique index makes a repeat
- *  append a no-op, so callers may append before claiming a day and retry
- *  safely after a crash. */
+/** Prepared, unexecuted — for callers that need to submit it as part of a
+ *  larger `db.batch()` alongside another insert (e.g. one food_log row plus
+ *  its strike, written atomically so neither can land without the other).
+ *  `INSERT OR IGNORE` against `strikes_dedup` makes a repeat append a no-op. */
+export function addStrikeStatement(
+  db: D1Database, runId: string, date: string,
+  reason: 'missed_goal' | 'banned_food', refId: string | null, at: number,
+): D1PreparedStatement {
+  return db.prepare(
+    'INSERT OR IGNORE INTO strikes (id,run_id,date,reason,ref_id,at) VALUES (?,?,?,?,?,?)',
+  ).bind(newId(), runId, date, reason, refId, at);
+}
+
+/** Appends one row per entry. Never clamps — see the global constraints. */
 export async function addStrikes(
   db: D1Database, runId: string, date: string,
   reason: 'missed_goal' | 'banned_food', refIds: (string | null)[], at: number,
 ): Promise<void> {
   if (refIds.length === 0) return;
-  const stmt = db.prepare(
-    'INSERT OR IGNORE INTO strikes (id,run_id,date,reason,ref_id,at) VALUES (?,?,?,?,?,?)',
-  );
-  await db.batch(refIds.map((ref) => stmt.bind(newId(), runId, date, reason, ref, at)));
+  await db.batch(refIds.map((ref) => addStrikeStatement(db, runId, date, reason, ref, at)));
 }
 
 export async function listStrikes(db: D1Database, runId: string): Promise<StrikeRow[]> {

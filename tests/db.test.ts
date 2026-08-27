@@ -3,7 +3,7 @@ import { it, expect, beforeAll, beforeEach } from 'vitest';
 import { createRun, getActiveRun, failRun, completeRun } from '../src/db/runs';
 import { createGoal, listActiveGoals, archiveGoal, updateGoal, toSnapshot } from '../src/db/goals';
 import { createDay, getProgress, setProgress, lockDay, updateSnapshot } from '../src/db/days';
-import { addStrikes, countStrikes } from '../src/db/strikes';
+import { addStrikeStatement, addStrikes, countStrikes } from '../src/db/strikes';
 
 beforeAll(async () => { await applyD1Migrations(env.DB, env.MIGRATIONS); });
 
@@ -129,4 +129,15 @@ it('will not end a run that has already ended', async () => {
   const row = await env.DB.prepare('SELECT status, ended_date FROM runs WHERE id = ?')
     .bind(run.id).first<{ status: string; ended_date: string }>();
   expect(row).toEqual({ status: 'failed', ended_date: '2026-08-30' });
+});
+
+it('addStrikeStatement can be batched atomically with another insert', async () => {
+  const run = await createRun(env.DB, 'u1', 'hard', '2026-08-26', 1);
+  await env.DB.batch([
+    env.DB.prepare(
+      "INSERT INTO food_items (id,user_id,name,status) VALUES ('f1','u1','Cake','banned')",
+    ),
+    addStrikeStatement(env.DB, run.id, '2026-08-26', 'banned_food', 'f1', 5),
+  ]);
+  expect(await countStrikes(env.DB, run.id)).toBe(1);
 });
