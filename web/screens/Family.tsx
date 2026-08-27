@@ -22,7 +22,7 @@ export function Family() {
   if (!members) {
     return (
       <main className="grid min-h-dvh place-items-center text-[var(--color-muted)]">
-        Loading…
+        {error ? <p role="alert" className="text-[var(--color-destructive)]">{error}</p> : 'Loading…'}
       </main>
     );
   }
