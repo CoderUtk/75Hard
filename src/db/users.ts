@@ -34,6 +34,13 @@ export async function clearPinFailures(db: D1Database, id: string): Promise<void
     .bind(id).run();
 }
 
+export async function updatePin(
+  db: D1Database, id: string, hash: string, salt: string,
+): Promise<void> {
+  await db.prepare('UPDATE users SET pin_hash = ?, pin_salt = ? WHERE id = ?')
+    .bind(hash, salt, id).run();
+}
+
 export async function createSession(
   db: D1Database, tokenHash: string, userId: string, expiresAt: number,
 ): Promise<void> {

@@ -8,6 +8,8 @@ import { getProgress } from '../db/days';
 import { countStrikes } from '../db/strikes';
 import { ensureDay } from '../services/grading';
 import { startRun, isActiveRunConflict } from '../services/onboarding';
+import { verifyPin, hashPin } from '../lib/password';
+import { getUser, updatePin } from '../db/users';
 import type { App } from './middleware';
 
 export const me = new Hono<App>();
@@ -15,6 +17,11 @@ export const me = new Hono<App>();
 const onboardingSchema = z.object({
   variant: z.enum(['hard', 'soft']),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+const pinChangeSchema = z.object({
+  currentPin: z.string().regex(/^\d{4}$/),
+  newPin: z.string().regex(/^\d{4}$/),
 });
 
 me.post('/onboarding', async (c) => {
@@ -98,4 +105,21 @@ me.get('/', async (c) => {
     },
     strikes: { used: displayStrikes(strikes), limit: STRIKE_LIMIT },
   });
+});
+
+me.post('/pin', async (c) => {
+  const parsed = pinChangeSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: 'bad request' }, 400);
+
+  const sessionUser = c.get('user');
+  const user = await getUser(c.env.DB, sessionUser.id);
+  if (!user) return c.json({ error: 'unauthorised' }, 401);
+
+  if (!(await verifyPin(parsed.data.currentPin, user.pin_hash, user.pin_salt))) {
+    return c.json({ error: 'wrong current pin' }, 401);
+  }
+
+  const { hash, salt } = await hashPin(parsed.data.newPin);
+  await updatePin(c.env.DB, user.id, hash, salt);
+  return c.json({ ok: true });
 });
