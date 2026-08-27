@@ -30,7 +30,6 @@
 
 | File | Responsibility |
 |---|---|
-| `migrations/0003_photos.sql` (new) | Create the `photos` table exactly as the spec's schema defines it. |
 | `wrangler.jsonc` (modify) | Add the `r2_buckets` binding `PHOTOS` → `75hard-photos`. |
 | `vitest.config.ts` (modify) | Add `r2Buckets: ['PHOTOS']` to the miniflare block so tests get a simulated bucket. |
 | `src/worker.ts` (modify) | Add `PHOTOS: R2Bucket` to the `Env` interface. |
@@ -48,10 +47,16 @@
 
 ---
 
-## Task 1: `photos` table + R2 binding + config wiring
+## Task 1: R2 binding + config wiring
+
+> **Plan correction (controller ruling, preflight):** `migrations/0001_init.sql`
+> already creates the `photos` table (Phase 1 built every table up front,
+> including `push_subs`). Do NOT add a `0003_photos.sql` migration — a second
+> `CREATE TABLE photos` breaks incremental apply on every DB that already ran
+> 0001 (local dev + remote). No migration changes in this phase. The smoke
+> test still asserts the table exists (it does, from 0001).
 
 **Files:**
-- Create: `migrations/0003_photos.sql`
 - Modify: `wrangler.jsonc`
 - Modify: `vitest.config.ts`
 - Modify: `src/worker.ts:4-7` (the `Env` interface)
