@@ -66,6 +66,21 @@ npm run deploy
 
 Then seed your users per `scripts/seed-users.md`.
 
+### Push notification secrets
+
+Web push needs a VAPID key pair. Generate one (P-256; `VAPID_PUBLIC_KEY` is the raw
+65-byte point as base64url, `VAPID_PRIVATE_KEY` the raw 32-byte scalar as base64url),
+then:
+
+```bash
+npx wrangler secret put VAPID_PUBLIC_KEY
+npx wrangler secret put VAPID_PRIVATE_KEY
+npx wrangler secret put VAPID_SUBJECT     # mailto:you@example.com
+```
+
+For local dev put the same three in `.dev.vars`. Without them the push API returns 503
+and the scheduled sends are logged no-ops — the rest of the app is unaffected.
+
 ## How grading works
 
 Two things drive grading, and both are idempotent:
@@ -104,12 +119,16 @@ grading rules testable without a database.
 **Phase 1 is complete** — login, onboarding, daily tracking, goal editing, automatic
 grading, strikes, reset, and the Day 75 completion screen. 102 tests.
 
+**Phase 5a is complete** — web push straight from the Worker (VAPID, no third-party
+service): a 21:00 IST nudge for anyone with an incomplete day, and a Day 25 / 50 / 75
+milestone ping to the rest of the family. Reminders toggle lives on the Me tab.
+
 Later phases, deliberately not built yet:
 
 - **Phase 2** — Food tab: per-user allowed/banned lists, meal diary, slip logging
 - **Phase 3** — Family tab and run history
 - **Phase 4** — Progress photos (R2, private to the uploader)
-- **Phase 5** — Push notifications and PWA install
+- **Phase 5b** — PWA install: manifest, icons, offline application shell
 
 The Food and Family nav items render disabled until their phase lands, so the layout
 does not shift when they arrive.
