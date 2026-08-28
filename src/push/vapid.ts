@@ -1,6 +1,17 @@
+import type { Env } from '../worker';
 import { b64url, fromB64url } from '../lib/ids';
 
 export type VapidConfig = { publicKey: string; privateKey: string; subject: string };
+
+/** The one place the "all three VAPID vars present" check lives. */
+export function vapidFromEnv(env: Env): VapidConfig | null {
+  if (!env.VAPID_PUBLIC_KEY || !env.VAPID_PRIVATE_KEY || !env.VAPID_SUBJECT) return null;
+  return {
+    publicKey: env.VAPID_PUBLIC_KEY,
+    privateKey: env.VAPID_PRIVATE_KEY,
+    subject: env.VAPID_SUBJECT,
+  };
+}
 
 /** RFC 8292 allows up to 24h. 12h leaves room for clock skew either way. */
 const EXPIRY_SECONDS = 12 * 60 * 60;

@@ -71,11 +71,9 @@ async function decryptBody(
   const plain = new Uint8Array(
     await crypto.subtle.decrypt({ name: 'AES-GCM', iv: nonce }, cek, ciphertext),
   );
-  // Last record ends with the 0x02 delimiter, then zero padding.
-  let end = plain.length;
-  while (end > 0 && plain[end - 1] === 0) end--;
-  expect(plain[end - 1]).toBe(0x02);
-  return new TextDecoder().decode(plain.slice(0, end - 1));
+  // Last record ends with the 0x02 delimiter; the implementation emits no padding.
+  expect(plain[plain.length - 1]).toBe(0x02);
+  return new TextDecoder().decode(plain.slice(0, plain.length - 1));
 }
 
 async function makeVapid(): Promise<VapidConfig & { verifyKey: CryptoKey }> {

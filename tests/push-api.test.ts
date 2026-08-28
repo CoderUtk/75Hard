@@ -42,6 +42,13 @@ it('rejects a malformed body', async () => {
   expect(res.status).toBe(400);
 });
 
+it('rejects a non-https endpoint', async () => {
+  const res = await req('POST', '/api/push/subscribe', {
+    endpoint: 'http://push.example/abc', keys: { p256dh: 'p', auth: 'a' },
+  });
+  expect(res.status).toBe(400);
+});
+
 it('stores a subscription', async () => {
   const res = await req('POST', '/api/push/subscribe', SUB);
   expect(res.status).toBe(200);

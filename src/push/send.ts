@@ -4,6 +4,8 @@ import { vapidAuthHeader, type VapidConfig } from './vapid';
 export type { VapidConfig };
 export type WebPushSub = { endpoint: string; p256dh: string; auth: string };
 export type SendResult = 'ok' | 'prune' | 'error';
+/** Shared shape of `sendPush` so services can accept a stub in tests. */
+export type SendFn = (vapid: VapidConfig, sub: WebPushSub, payload: string) => Promise<SendResult>;
 
 /** 28 days — the push service holds the message this long if the device is offline. */
 const TTL_SECONDS = 2419200;
@@ -43,7 +45,7 @@ export async function sendPush(
     console.error(`push send failed: ${res.status} ${text}`);
     return 'error';
   } catch (err) {
-    console.error('push send threw:', err);
+    console.error('push send threw:', String(err));
     return 'error';
   }
 }
@@ -83,6 +85,7 @@ export async function encryptPayload(
   const cek = await crypto.subtle.importKey('raw', cekBytes, 'AES-GCM', false, ['encrypt']);
   // 0x02 marks the last (only) record; no extra padding — the size is not secret here.
   const plaintext = concat(encode(payload), new Uint8Array([0x02]));
+  if (plaintext.byteLength + 16 > RECORD_SIZE) throw new Error('push payload too large');
   const ciphertext = new Uint8Array(
     await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, cek, plaintext),
   );

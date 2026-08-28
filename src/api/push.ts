@@ -1,19 +1,19 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { upsertSub, deleteSub } from '../db/push';
+import { vapidFromEnv } from '../push/vapid';
 import type { App } from './middleware';
 
 export const push = new Hono<App>();
 
+const httpsUrl = z.string().url().refine((u) => u.startsWith('https://'), 'must be https');
 const subscribeSchema = z.object({
-  endpoint: z.string().url(),
+  endpoint: httpsUrl,
   keys: z.object({ p256dh: z.string().min(1), auth: z.string().min(1) }),
 });
 const unsubscribeSchema = z.object({ endpoint: z.string().url() });
 
-function vapidConfigured(env: App['Bindings']): boolean {
-  return Boolean(env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY && env.VAPID_SUBJECT);
-}
+const vapidConfigured = (env: App['Bindings']): boolean => vapidFromEnv(env) !== null;
 
 push.get('/vapid-public-key', (c) => {
   if (!vapidConfigured(c.env)) return c.json({ error: 'push not configured' }, 503);

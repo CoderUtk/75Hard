@@ -6,18 +6,10 @@ import { getProgress } from '../db/days';
 import { ensureDay } from './grading';
 import { usersToNudge, listSubsForUser, deleteSubByEndpoint } from '../db/push';
 import { nudgeText } from '../push/messages';
-import { sendPush, type VapidConfig, type WebPushSub } from '../push/send';
+import { sendPush, type SendFn } from '../push/send';
+import { vapidFromEnv } from '../push/vapid';
 
-export type NudgeDeps = {
-  send: (v: VapidConfig, s: WebPushSub, payload: string) => Promise<'ok' | 'prune' | 'error'>;
-};
-
-function vapid(env: Env): VapidConfig | null {
-  if (!env.VAPID_PUBLIC_KEY || !env.VAPID_PRIVATE_KEY || !env.VAPID_SUBJECT) return null;
-  return {
-    publicKey: env.VAPID_PUBLIC_KEY, privateKey: env.VAPID_PRIVATE_KEY, subject: env.VAPID_SUBJECT,
-  };
-}
+export type NudgeDeps = { send: SendFn };
 
 /** 21:00 IST pass. For every user with an active run and a subscription,
  *  count today's incomplete goals; if any, push a nudge to each of their
@@ -25,7 +17,7 @@ function vapid(env: Env): VapidConfig | null {
 export async function runNudge(
   db: D1Database, env: Env, now: Date, deps: NudgeDeps = { send: sendPush },
 ): Promise<{ sent: number }> {
-  const cfg = vapid(env);
+  const cfg = vapidFromEnv(env);
   if (!cfg) {
     console.warn('runNudge: VAPID not configured, skipping');
     return { sent: 0 };
@@ -38,6 +30,8 @@ export async function runNudge(
     try {
       const run = await getActiveRun(db, userId);
       if (!run) continue;
+      // Materialises today's row now; a goal edited after 21:00 won't be in
+      // tonight's snapshot — acceptable, one-day blast radius.
       const day = await ensureDay(db, run, today, userId, now);
       const snapshot = JSON.parse(day.goals_snapshot) as GoalSnapshot[];
       const progress = await getProgress(db, day.id);

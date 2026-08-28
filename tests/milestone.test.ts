@@ -62,6 +62,16 @@ it('sendMilestone notifies every other subscribed user, not the achiever', async
   expect(JSON.parse(send.mock.calls[0]![2])).toMatchObject({ body: 'Utkarsh reached Day 50 🔥' });
 });
 
+it('tags milestone payloads per achiever so simultaneous ones do not collapse', async () => {
+  await upsertSub(env.DB, 'u3', { endpoint: 'https://push/u3', p256dh: 'p', auth: 'a' }, 1);
+  const send = vi.fn().mockResolvedValue('ok');
+  await sendMilestone(env.DB, envWith(), 'u1', 25, { send });
+  await sendMilestone(env.DB, envWith(), 'u2', 25, { send });
+  const tags = send.mock.calls.map((c) => JSON.parse(c[2]).tag);
+  expect(tags).toEqual(['milestone:u1', 'milestone:u2']);
+  expect(tags[0]).not.toBe(tags[1]);
+});
+
 it('sendMilestone is a no-op without VAPID', async () => {
   await upsertSub(env.DB, 'u2', { endpoint: 'https://push/u2', p256dh: 'p', auth: 'a' }, 1);
   const send = vi.fn();

@@ -69,8 +69,18 @@ Then seed your users per `scripts/seed-users.md`.
 ### Push notification secrets
 
 Web push needs a VAPID key pair. Generate one (P-256; `VAPID_PUBLIC_KEY` is the raw
-65-byte point as base64url, `VAPID_PRIVATE_KEY` the raw 32-byte scalar as base64url),
-then:
+65-byte point as base64url, `VAPID_PRIVATE_KEY` the raw 32-byte scalar as base64url):
+
+```bash
+node --input-type=module -e '
+const b64url = (b) => Buffer.from(b).toString("base64url");
+const kp = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign"]);
+console.log("VAPID_PUBLIC_KEY ", b64url(await crypto.subtle.exportKey("raw", kp.publicKey)));
+console.log("VAPID_PRIVATE_KEY", (await crypto.subtle.exportKey("jwk", kp.privateKey)).d);
+'
+```
+
+Then:
 
 ```bash
 npx wrangler secret put VAPID_PUBLIC_KEY
