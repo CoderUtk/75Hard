@@ -1,7 +1,9 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Target, Check, Ban, History as HistoryIcon, KeyRound, LogOut } from 'lucide-react';
+import { ChevronRight, Target, Check, Ban, History as HistoryIcon, KeyRound, LogOut, Bell } from 'lucide-react';
 import { api } from '../api';
 import { BottomNav } from '../components/BottomNav';
+import { pushState, enablePush, disablePush, type PushState } from '../lib/push';
 
 const LINKS = [
   { to: '/me/goals', label: 'My goals', Icon: Target },
@@ -14,10 +16,59 @@ const LINKS = [
 export function Me() {
   const navigate = useNavigate();
 
+  const [push, setPush] = useState<PushState>('unsupported');
+  const [pushErr, setPushErr] = useState('');
+  const [pushBusy, setPushBusy] = useState(false);
+
+  useEffect(() => { pushState().then(setPush).catch(() => setPush('unsupported')); }, []);
+
+  async function togglePush() {
+    setPushErr('');
+    setPushBusy(true);
+    try {
+      if (push === 'subscribed') { await disablePush(); }
+      else { await enablePush(); }
+      setPush(await pushState());
+    } catch (e) {
+      setPushErr(e instanceof Error ? e.message : 'Could not change reminders.');
+    } finally {
+      setPushBusy(false);
+    }
+  }
+
   return (
     <>
       <main className="mx-auto max-w-md p-4 pb-28">
         <h1 className="display mt-4 text-3xl">Me</h1>
+
+        {push !== 'unsupported' && (
+          <div className="mt-5 rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-4">
+            <div className="flex items-center gap-3">
+              <Bell size={20} aria-hidden />
+              <span className="flex-1">Daily reminders</span>
+              <button
+                onClick={togglePush}
+                disabled={pushBusy || push === 'denied'}
+                className="display rounded-lg border border-[var(--color-border)] px-3 py-1 text-sm
+                           disabled:opacity-50"
+              >
+                {push === 'subscribed' ? 'On' : 'Off'}
+              </button>
+            </div>
+            {push === 'denied' && (
+              <p className="mt-2 text-sm text-[var(--color-muted)]">
+                Turn on notifications for this site in your browser settings.
+              </p>
+            )}
+            {pushErr && (
+              <p role="alert" className="mt-2 text-sm text-[var(--color-destructive)]">{pushErr}</p>
+            )}
+            <p className="mt-2 text-sm text-[var(--color-muted)]">
+              On iPhone, add this app to your Home Screen first — Safari only sends
+              reminders to installed apps.
+            </p>
+          </div>
+        )}
 
         <div className="mt-5">
           {LINKS.map(({ to, label, Icon }) => (
