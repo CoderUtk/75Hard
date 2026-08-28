@@ -1,5 +1,6 @@
 import api from './api/router';
 import { runDailyLock } from './services/cron';
+import { runNudge } from './services/nudge';
 
 export interface Env {
   DB: D1Database;
@@ -29,6 +30,17 @@ export default {
           })
           .catch((err) => {
             console.error('daily lock failed', err);
+          })
+      );
+    }
+    if (event.cron === '30 15 * * *') {
+      ctx.waitUntil(
+        runNudge(env.DB, env, now)
+          .then(({ sent }) => {
+            console.log(`nudge sent ${sent} notifications`);
+          })
+          .catch((err) => {
+            console.error('nudge failed', err);
           })
       );
     }
