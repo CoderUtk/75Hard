@@ -4,6 +4,7 @@ import { ChevronRight, Target, Check, Ban, History as HistoryIcon, KeyRound, Log
 import { api } from '../api';
 import { BottomNav } from '../components/BottomNav';
 import { pushState, enablePush, disablePush, type PushState } from '../lib/push';
+import { InstallCard } from '../components/InstallCard';
 
 const LINKS = [
   { to: '/me/goals', label: 'My goals', Icon: Target },
@@ -64,11 +65,14 @@ export function Me() {
               <p role="alert" className="mt-2 text-sm text-[var(--color-destructive)]">{pushErr}</p>
             )}
             <p className="mt-2 text-sm text-[var(--color-muted)]">
-              On iPhone, add this app to your Home Screen first — Safari only sends
-              reminders to installed apps.
+              Reminders only reach an installed app — add 75 Hard to your Home Screen.
             </p>
           </div>
         )}
+
+        <div className="mt-3">
+          <InstallCard />
+        </div>
 
         <div className="mt-5">
           {LINKS.map(({ to, label, Icon }) => (

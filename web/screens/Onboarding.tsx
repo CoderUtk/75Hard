@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
+import { InstallCard } from '../components/InstallCard';
 
 const todayIST = () =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
@@ -64,6 +65,8 @@ export function Onboarding() {
         Every goal you miss is a strike. Three strikes and you go back to Day 1.
         You can edit your goals any time — changes apply from today forward.
       </p>
+
+      <InstallCard />
 
       {error && <p role="alert" className="text-sm text-[var(--color-destructive)]">{error}</p>}
 
