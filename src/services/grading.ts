@@ -11,6 +11,9 @@ import { addStrikes, countStrikes } from '../db/strikes';
 
 const RUN_LENGTH = 75;
 
+export type MilestoneHook = (dayNumber: number) => Promise<void>;
+const MILESTONE_DAYS = new Set([25, 50, 75]);
+
 /** The most recent date whose lock window has closed.
  *  Day D locks at 12:00 IST on D+1, so before noon only D-2 is gradable. */
 export function lastGradableDate(now: Date): string {
@@ -34,7 +37,7 @@ export async function ensureDay(
  * `lockDay` only acts on rows where `locked_at IS NULL`.
  */
 export async function catchUpGrading(
-  db: D1Database, userId: string, now: Date,
+  db: D1Database, userId: string, now: Date, onMilestone?: MilestoneHook,
 ): Promise<{ runFailed: boolean; runCompleted: boolean }> {
   const run = await getActiveRun(db, userId);
   if (!run) return { runFailed: false, runCompleted: false };
@@ -72,6 +75,14 @@ export async function catchUpGrading(
 
     const claimed = await lockDay(db, day.id, grade.state, at);
     if (!claimed) continue;
+
+    if (onMilestone && grade.state === 'passed' && MILESTONE_DAYS.has(day.day_number)) {
+      try {
+        await onMilestone(day.day_number);
+      } catch (err) {
+        console.error('milestone hook failed', { userId, day: day.day_number, err });
+      }
+    }
 
     if (isRunOver(await countStrikes(db, run.id))) {
       await failRun(db, run.id, today);

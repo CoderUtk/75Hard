@@ -3,6 +3,7 @@ import { getCookie } from 'hono/cookie';
 import { sha256 } from '../lib/password';
 import { getSessionUser, type PublicUser } from '../db/users';
 import { catchUpGrading } from '../services/grading';
+import { sendMilestone } from '../services/milestone';
 import type { Env } from '../worker';
 
 export const COOKIE_NAME = 'sid';
@@ -24,7 +25,10 @@ export async function requireAuth(c: Context<App>, next: Next) {
   // grades independently and the next request retries), so a bad row here
   // must degrade to stale strike data, never lock the user out of the app.
   try {
-    await catchUpGrading(c.env.DB, user.id, new Date());
+    await catchUpGrading(
+      c.env.DB, user.id, new Date(),
+      (dayNumber) => sendMilestone(c.env.DB, c.env, user.id, dayNumber),
+    );
   } catch (err) {
     console.error('catchUpGrading failed', { userId: user.id, err });
   }
