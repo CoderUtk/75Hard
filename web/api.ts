@@ -112,4 +112,15 @@ export const api = {
     call<{ ok: true }>('/api/me/pin', {
       method: 'POST', body: JSON.stringify({ currentPin, newPin }),
     }),
+
+  vapidKey: () => call<{ key: string }>('/api/push/vapid-public-key'),
+  pushSubscribe: (sub: PushSubscriptionJSON) =>
+    call<{ ok: true }>('/api/push/subscribe', {
+      method: 'POST',
+      body: JSON.stringify({ endpoint: sub.endpoint, keys: sub.keys }),
+    }),
+  pushUnsubscribe: (endpoint: string) =>
+    call<{ ok: true }>('/api/push/subscribe', {
+      method: 'DELETE', body: JSON.stringify({ endpoint }),
+    }),
 };
