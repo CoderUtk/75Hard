@@ -99,6 +99,61 @@ it('refuses to archive the last remaining goal', async () => {
   expect(still.map((g) => g.id)).toEqual([last.id]);
 });
 
+it('edits a goal\'s target without a sortOrder, keeping order, and refreshes today\'s snapshot', async () => {
+  const today = await onboard();
+  await req('/api/me', 'GET'); // materialise today
+  const before = await (await req('/api/goals', 'GET')).json<
+    { id: string; title: string; kind: string; target: number; unit: string | null; sort_order: number }[]
+  >();
+  const water = before.find((g) => /water/i.test(g.title))!;
+
+  const res = await req(`/api/goals/${water.id}`, 'PATCH', {
+    title: water.title, kind: water.kind, target: 8, unit: water.unit,
+  });
+  expect(res.status).toBe(200);
+
+  const after = await (await req('/api/goals', 'GET')).json<
+    { id: string; target: number; sort_order: number }[]
+  >();
+  expect(after.find((g) => g.id === water.id)!.target).toBe(8);
+  // order preserved for every goal
+  expect(after.map((g) => [g.id, g.sort_order])).toEqual(before.map((g) => [g.id, g.sort_order]));
+
+  const run = await getActiveRun(env.DB, 'u1');
+  const day = await getDay(env.DB, run!.id, today);
+  const snap = JSON.parse(day!.goals_snapshot) as { id: string; target: number }[];
+  expect(snap.find((g) => g.id === water.id)!.target).toBe(8);
+});
+
+it('a target edit does not rewrite a locked day\'s snapshot', async () => {
+  const today = await onboard();
+  await req('/api/me', 'GET');
+  const run = await getActiveRun(env.DB, 'u1');
+  // Freeze today's row as if it were already locked.
+  await env.DB.prepare('UPDATE days SET locked_at = 1 WHERE run_id = ?').bind(run!.id).run();
+  const locked = await getDay(env.DB, run!.id, today);
+  const snapBefore = locked!.goals_snapshot;
+
+  const goals = await (await req('/api/goals', 'GET')).json<{ id: string; title: string; kind: string; unit: string | null }[]>();
+  const g = goals.find((x) => x.kind !== 'check')!;
+  await req(`/api/goals/${g.id}`, 'PATCH', { title: g.title, kind: g.kind, target: 99, unit: g.unit });
+
+  const after = await getDay(env.DB, run!.id, today);
+  expect(after!.goals_snapshot).toBe(snapBefore); // untouched
+});
+
+it('still accepts a PATCH that includes sortOrder (reorder)', async () => {
+  await onboard();
+  const goals = await (await req('/api/goals', 'GET')).json<{ id: string; title: string; kind: string; target: number; unit: string | null }[]>();
+  const g = goals[0]!;
+  const res = await req(`/api/goals/${g.id}`, 'PATCH', {
+    title: g.title, kind: g.kind, target: g.target, unit: g.unit, sortOrder: 3,
+  });
+  expect(res.status).toBe(200);
+  const after = await (await req('/api/goals', 'GET')).json<{ id: string; sort_order: number }[]>();
+  expect(after.find((x) => x.id === g.id)!.sort_order).toBe(3);
+});
+
 it('refuses to touch another user\'s goal', async () => {
   await onboard();
   await env.DB.prepare(

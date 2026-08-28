@@ -43,7 +43,7 @@ goals.post('/', async (c) => {
 });
 
 goals.patch('/:id', async (c) => {
-  const parsed = goalSchema.extend({ sortOrder: z.number().int().min(0) })
+  const parsed = goalSchema.extend({ sortOrder: z.number().int().min(0).optional() })
     .safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) return c.json({ error: 'bad request' }, 400);
 

@@ -45,8 +45,16 @@ export async function createGoal(
 
 export async function updateGoal(
   db: D1Database, userId: string, id: string,
-  g: { title: string; kind: GoalKind; target: number; unit: string | null; sortOrder: number },
+  g: { title: string; kind: GoalKind; target: number; unit: string | null; sortOrder?: number },
 ): Promise<void> {
+  // A plain field edit (e.g. bumping a target) leaves sort_order alone; only a
+  // reorder passes sortOrder. user_id in the WHERE clause is the ownership check.
+  if (g.sortOrder === undefined) {
+    await db.prepare(
+      'UPDATE goals SET title=?, kind=?, target=?, unit=? WHERE id=? AND user_id=?',
+    ).bind(g.title, g.kind, g.target, g.unit, id, userId).run();
+    return;
+  }
   await db.prepare(
     `UPDATE goals SET title=?, kind=?, target=?, unit=?, sort_order=?
       WHERE id=? AND user_id=?`,
