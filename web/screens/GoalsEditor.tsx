@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Trash2, ArrowLeft } from 'lucide-react';
+import { Trash2, ArrowLeft, Check, X } from 'lucide-react';
 import { api, ApiError, type Goal, type GoalKind } from '../api';
 import { BottomNav } from '../components/BottomNav';
 
@@ -17,6 +17,8 @@ export function GoalsEditor() {
   const [target, setTarget] = useState(1);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editTarget, setEditTarget] = useState(1);
   const navigate = useNavigate();
 
   const load = () =>
@@ -41,6 +43,21 @@ export function GoalsEditor() {
         target: preset.kind === 'check' ? 1 : target, unit: preset.unit,
       });
       setTitle('');
+      await load();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Could not reach the server');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveTarget(g: Goal) {
+    if (editTarget < 1) return setError('Target must be at least 1.');
+    setError('');
+    setBusy(true);
+    try {
+      await api.updateGoal(g.id, { title: g.title, kind: g.kind, target: editTarget, unit: g.unit });
+      setEditId(null);
       await load();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Could not reach the server');
@@ -83,16 +100,46 @@ export function GoalsEditor() {
               className="mb-2 flex items-center gap-3 rounded-xl border
                          border-[var(--color-border)] bg-[var(--color-card)] p-3">
               <span className="flex-1">{g.title}</span>
-              <span className="tabular text-sm text-[var(--color-muted)]">
-                {g.kind === 'check' ? '—' : `${g.target} ${g.unit ?? ''}`}
-              </span>
-              <button
-                onClick={() => remove(g)}
-                aria-label={`Remove ${g.title}`}
-                className="text-[var(--color-destructive)]"
-              >
-                <Trash2 size={18} aria-hidden />
-              </button>
+
+              {editId === g.id ? (
+                <>
+                  <input
+                    type="number" min={1} inputMode="numeric" autoFocus value={editTarget}
+                    onChange={(e) => setEditTarget(Number(e.target.value))}
+                    className="tabular w-16 rounded-lg bg-[var(--color-background)] p-1 text-sm"
+                  />
+                  <span className="text-sm text-[var(--color-muted)]">{g.unit}</span>
+                  <button onClick={() => saveTarget(g)} disabled={busy}
+                    aria-label={`Save ${g.title} target`} className="text-[var(--color-primary)]">
+                    <Check size={18} aria-hidden />
+                  </button>
+                  <button onClick={() => setEditId(null)}
+                    aria-label="Cancel" className="text-[var(--color-muted)]">
+                    <X size={18} aria-hidden />
+                  </button>
+                </>
+              ) : (
+                <>
+                  {g.kind === 'check' ? (
+                    <span className="tabular text-sm text-[var(--color-muted)]">—</span>
+                  ) : (
+                    <button
+                      onClick={() => { setEditId(g.id); setEditTarget(g.target); setError(''); }}
+                      aria-label={`Edit ${g.title} target`}
+                      className="tabular text-sm text-[var(--color-muted)] underline"
+                    >
+                      {g.target} {g.unit ?? ''}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => remove(g)}
+                    aria-label={`Remove ${g.title}`}
+                    className="text-[var(--color-destructive)]"
+                  >
+                    <Trash2 size={18} aria-hidden />
+                  </button>
+                </>
+              )}
             </div>
           ))}
         </div>

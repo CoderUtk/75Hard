@@ -71,6 +71,8 @@ export const api = {
   goals: () => call<Goal[]>('/api/goals'),
   addGoal: (g: Omit<Goal, 'id'>) =>
     call<Goal>('/api/goals', { method: 'POST', body: JSON.stringify(g) }),
+  updateGoal: (id: string, g: Omit<Goal, 'id'>) =>
+    call<{ ok: true }>(`/api/goals/${id}`, { method: 'PATCH', body: JSON.stringify(g) }),
   deleteGoal: (id: string) =>
     call<{ ok: true }>(`/api/goals/${id}`, { method: 'DELETE' }),
 
