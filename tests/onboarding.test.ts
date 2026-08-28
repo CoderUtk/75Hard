@@ -3,6 +3,12 @@ import { it, expect, beforeAll, beforeEach } from 'vitest';
 import { hashPin } from '../src/lib/password';
 import { listActiveGoals } from '../src/db/goals';
 import { getActiveRun } from '../src/db/runs';
+import { todayIST } from '../src/lib/dates';
+
+// Start runs on the server's "today". A hardcoded past date time-bombs the
+// suite: the next authed request's catchUpGrading fails the run for the
+// missed days, so the active-run guards under test never fire.
+const START = todayIST(new Date());
 
 beforeAll(async () => { await applyD1Migrations(env.DB, env.MIGRATIONS); });
 
@@ -33,7 +39,7 @@ const post = (path: string, body: unknown) =>
   });
 
 it('seeds hard preset goals and banned foods, and creates attempt 1', async () => {
-  const res = await post('/api/onboarding', { variant: 'hard', startDate: '2026-08-26' });
+  const res = await post('/api/onboarding', { variant: 'hard', startDate: START });
   expect(res.status).toBe(200);
 
   expect(await listActiveGoals(env.DB, 'u1')).toHaveLength(6);
@@ -48,24 +54,24 @@ it('seeds hard preset goals and banned foods, and creates attempt 1', async () =
 });
 
 it('seeds fewer goals for soft', async () => {
-  await post('/api/onboarding', { variant: 'soft', startDate: '2026-08-26' });
+  await post('/api/onboarding', { variant: 'soft', startDate: START });
   expect(await listActiveGoals(env.DB, 'u1')).toHaveLength(4);
 });
 
 it('refuses a second onboarding while a run is active', async () => {
-  await post('/api/onboarding', { variant: 'hard', startDate: '2026-08-26' });
-  const res = await post('/api/onboarding', { variant: 'soft', startDate: '2026-08-26' });
+  await post('/api/onboarding', { variant: 'hard', startDate: START });
+  const res = await post('/api/onboarding', { variant: 'soft', startDate: START });
   expect(res.status).toBe(409);
 });
 
 it('refuses reset while the run is still active', async () => {
-  await post('/api/onboarding', { variant: 'hard', startDate: '2026-08-26' });
+  await post('/api/onboarding', { variant: 'hard', startDate: START });
   const res = await post('/api/run/reset', {});
   expect(res.status).toBe(409);
 });
 
 it('starts attempt 2 after a failure, keeping goals and archiving the old run', async () => {
-  await post('/api/onboarding', { variant: 'hard', startDate: '2026-08-26' });
+  await post('/api/onboarding', { variant: 'hard', startDate: START });
   const first = await getActiveRun(env.DB, 'u1');
   await env.DB.prepare("UPDATE runs SET status='failed', ended_date='2026-08-30' WHERE id=?")
     .bind(first!.id).run();
@@ -84,7 +90,7 @@ it('starts attempt 2 after a failure, keeping goals and archiving the old run', 
 });
 
 it('starts attempt 2 after a completed (done) run, not just a failed one', async () => {
-  await post('/api/onboarding', { variant: 'hard', startDate: '2026-08-26' });
+  await post('/api/onboarding', { variant: 'hard', startDate: START });
   const first = await getActiveRun(env.DB, 'u1');
   await env.DB.prepare("UPDATE runs SET status='done', ended_date='2026-11-08' WHERE id=?")
     .bind(first!.id).run();
@@ -103,8 +109,8 @@ it('starts attempt 2 after a completed (done) run, not just a failed one', async
 
 it('one of two concurrent onboarding requests wins with a 409, not a 500', async () => {
   const [a, b] = await Promise.all([
-    post('/api/onboarding', { variant: 'hard', startDate: '2026-08-26' }),
-    post('/api/onboarding', { variant: 'hard', startDate: '2026-08-26' }),
+    post('/api/onboarding', { variant: 'hard', startDate: START }),
+    post('/api/onboarding', { variant: 'hard', startDate: START }),
   ]);
   const statuses = [a.status, b.status].sort();
   expect(statuses).toEqual([200, 409]);
@@ -124,7 +130,7 @@ it('a failed seeding batch leaves no stuck active run behind', async () => {
     "INSERT INTO food_items (id,user_id,name,status) VALUES (?,?,?,'banned')",
   ).bind('blocker', 'u1', 'Alcohol').run();
 
-  const failed = await post('/api/onboarding', { variant: 'hard', startDate: '2026-08-26' });
+  const failed = await post('/api/onboarding', { variant: 'hard', startDate: START });
   expect(failed.status).not.toBe(200);
 
   // No half-seeded, permanently-active run left locking the user out.
@@ -133,7 +139,7 @@ it('a failed seeding batch leaves no stuck active run behind', async () => {
 
   // Clear the blocker and retry: must succeed normally, not 409.
   await env.DB.prepare('DELETE FROM food_items WHERE id = ?').bind('blocker').run();
-  const retried = await post('/api/onboarding', { variant: 'hard', startDate: '2026-08-26' });
+  const retried = await post('/api/onboarding', { variant: 'hard', startDate: START });
   expect(retried.status).toBe(200);
   expect(await getActiveRun(env.DB, 'u1')).not.toBeNull();
 });
