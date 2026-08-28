@@ -136,10 +136,11 @@ Shipped so far (166 tests):
 - **Phase 5a** — web push straight from the Worker (VAPID, no third-party service):
   a 21:00 IST nudge for anyone with an incomplete day, and a Day 25 / 50 / 75 milestone
   ping to the rest of the family. Reminders toggle lives on the Me tab.
+- **Phase 5b** — installable PWA: web manifest, app icons, apple-touch meta, and a
+  minimal offline fallback page. (Icons are flat placeholders — swap real files into
+  `web/public/` when ready, no code change.)
 
-Not built yet:
-
-- **Phase 5b** — PWA install: manifest, icons, offline application shell.
+That's the whole roadmap. Everything planned is shipped.
 
 ### Known, carried
 
