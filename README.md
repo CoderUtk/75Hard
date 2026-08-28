@@ -126,7 +126,7 @@ grading rules testable without a database.
 
 ## Status
 
-Shipped so far (166 tests):
+Shipped so far (172 tests):
 
 - **Phase 1** — login, onboarding, daily tracking, goal editing, automatic grading,
   strikes, reset, the Day 75 completion screen.
@@ -138,7 +138,9 @@ Shipped so far (166 tests):
   ping to the rest of the family. Reminders toggle lives on the Me tab.
 - **Phase 5b** — installable PWA: web manifest, app icons, apple-touch meta, and a
   minimal offline fallback page. (Icons are flat placeholders — swap real files into
-  `web/public/` when ready, no code change.)
+  `web/public/` when ready, no code change.) Onboarding and the Me tab show a
+  browser-aware install prompt: a one-tap Install button on Chrome/Edge, Share →
+  Add to Home Screen instructions on iOS Safari.
 
 That's the whole roadmap. Everything planned is shipped.
 
