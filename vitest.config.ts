@@ -11,7 +11,13 @@ export default defineWorkersConfig({
         miniflare: {
           d1Databases: ['DB'],
           r2Buckets: ['PHOTOS'],
-          bindings: { MIGRATIONS: migrations },
+          bindings: {
+            MIGRATIONS: migrations,
+            VAPID_PUBLIC_KEY:
+              'BKxAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+            VAPID_PRIVATE_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+            VAPID_SUBJECT: 'mailto:test@example.com',
+          },
         },
       },
     },

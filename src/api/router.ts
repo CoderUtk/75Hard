@@ -7,6 +7,7 @@ import { days } from './days';
 import { family } from './family';
 import { history } from './history';
 import { photos } from './photos';
+import { push } from './push';
 import { requireAuth, type App } from './middleware';
 
 export const api = new Hono<App>().basePath('/api');
@@ -27,5 +28,6 @@ api.route('/days', days);      // GET /api/days/:date, PUT /api/days/:date/goals
 api.route('/family', family);  // GET /api/family
 api.route('/history', history); // GET /api/history
 api.route('/photos', photos);   // GET/POST /api/photos, GET /api/photos/:date
+api.route('/push', push);       // POST/DELETE /api/push/subscribe, GET /api/push/vapid-public-key
 
 export default api;

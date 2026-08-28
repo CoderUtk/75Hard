@@ -5,6 +5,9 @@ export interface Env {
   DB: D1Database;
   ASSETS: Fetcher;
   PHOTOS: R2Bucket;
+  VAPID_PUBLIC_KEY?: string;
+  VAPID_PRIVATE_KEY?: string;
+  VAPID_SUBJECT?: string;
 }
 
 export default {
