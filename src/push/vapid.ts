@@ -6,10 +6,11 @@ export type VapidConfig = { publicKey: string; privateKey: string; subject: stri
 /** The one place the "all three VAPID vars present" check lives. */
 export function vapidFromEnv(env: Env): VapidConfig | null {
   if (!env.VAPID_PUBLIC_KEY || !env.VAPID_PRIVATE_KEY || !env.VAPID_SUBJECT) return null;
+  // Trim: a secret pasted with a trailing newline decodes to the wrong byte length.
   return {
-    publicKey: env.VAPID_PUBLIC_KEY,
-    privateKey: env.VAPID_PRIVATE_KEY,
-    subject: env.VAPID_SUBJECT,
+    publicKey: env.VAPID_PUBLIC_KEY.trim(),
+    privateKey: env.VAPID_PRIVATE_KEY.trim(),
+    subject: env.VAPID_SUBJECT.trim(),
   };
 }
 

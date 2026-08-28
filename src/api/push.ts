@@ -16,8 +16,9 @@ const unsubscribeSchema = z.object({ endpoint: z.string().url() });
 const vapidConfigured = (env: App['Bindings']): boolean => vapidFromEnv(env) !== null;
 
 push.get('/vapid-public-key', (c) => {
-  if (!vapidConfigured(c.env)) return c.json({ error: 'push not configured' }, 503);
-  return c.json({ key: c.env.VAPID_PUBLIC_KEY! });
+  const cfg = vapidFromEnv(c.env);
+  if (!cfg) return c.json({ error: 'push not configured' }, 503);
+  return c.json({ key: cfg.publicKey });
 });
 
 push.post('/subscribe', async (c) => {

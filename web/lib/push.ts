@@ -8,6 +8,7 @@ export function pushSupported(): boolean {
 }
 
 function urlB64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
+  base64 = base64.trim(); // a stray newline in the stored key → wrong byte length → invalid applicationServerKey
   const padding = '='.repeat((4 - (base64.length % 4)) % 4);
   const b64 = (base64 + padding).replace(/-/g, '+').replace(/_/g, '/');
   const raw = atob(b64);
