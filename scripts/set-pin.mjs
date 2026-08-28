@@ -5,6 +5,9 @@
 //
 // Derivation must stay identical to src/lib/password.ts.
 import { execFileSync } from 'node:child_process';
+import { writeFileSync, unlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const [name, pin, ...rest] = process.argv.slice(2);
 const local = rest.includes('--local');
@@ -31,10 +34,19 @@ const bits = await crypto.subtle.deriveBits(
 
 const sql =
   `UPDATE users SET pin_hash='${b64(new Uint8Array(bits))}', pin_salt='${b64(salt)}',`
-  + ` failed_pins=0, locked_until=NULL WHERE name='${name.replace(/'/g, "''")}'`;
+  + ` failed_pins=0, locked_until=NULL WHERE name='${name.replace(/'/g, "''")}';`;
 
-const out = execFileSync('npx', ['wrangler', 'd1', 'execute', '75hard',
-  local ? '--local' : '--remote', '--command', sql], { encoding: 'utf8', shell: true });
+// Via a temp .sql file, not --command: shell:true (needed for npx on Windows)
+// re-splits a spaced --command string into separate argv entries.
+const sqlFile = join(tmpdir(), `set-pin-${Date.now()}.sql`);
+writeFileSync(sqlFile, sql);
+let out;
+try {
+  out = execFileSync('npx', ['wrangler', 'd1', 'execute', '75hard',
+    local ? '--local' : '--remote', '--file', sqlFile], { encoding: 'utf8', shell: true });
+} finally {
+  unlinkSync(sqlFile);
+}
 
 // D1 reports 0 changes for a name that does not exist — that must not look like success.
 if (/"changes":\s*0/.test(out) || /"rows_written":\s*0/.test(out)) {
