@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  todayIST, istMinutes, addDays, daysBetween,
+  todayIST, istMinutes, istHour, isQuietHours, addDays, daysBetween,
   dayNumber, datesBetween, isEditable,
 } from '../src/lib/dates';
 
@@ -33,6 +33,32 @@ describe('istMinutes', () => {
 
   it('returns 719 one minute before noon IST', () => {
     expect(istMinutes(new Date('2026-08-26T06:29:00Z'))).toBe(719);
+  });
+});
+
+describe('istHour', () => {
+  it('is 0 at IST midnight', () => {
+    expect(istHour(new Date('2026-08-26T18:30:00Z'))).toBe(0);
+  });
+  it('is 12 at noon IST, 23 late evening', () => {
+    expect(istHour(new Date('2026-08-26T06:30:00Z'))).toBe(12);
+    expect(istHour(new Date('2026-08-26T17:59:00Z'))).toBe(23); // 23:29 IST
+  });
+  it('is 7 at 07:00 IST', () => {
+    expect(istHour(new Date('2026-08-26T01:30:00Z'))).toBe(7);
+  });
+});
+
+describe('isQuietHours', () => {
+  it('is quiet overnight — midnight through 06:59 IST', () => {
+    expect(isQuietHours(new Date('2026-08-26T18:30:00Z'))).toBe(true);  // 00:00 IST
+    expect(isQuietHours(new Date('2026-08-26T20:00:00Z'))).toBe(true);  // 01:30 IST
+    expect(isQuietHours(new Date('2026-08-26T01:29:00Z'))).toBe(true);  // 06:59 IST
+  });
+  it('is not quiet from 07:00 IST through 23:00 IST', () => {
+    expect(isQuietHours(new Date('2026-08-26T01:30:00Z'))).toBe(false); // 07:00 IST
+    expect(isQuietHours(new Date('2026-08-26T06:30:00Z'))).toBe(false); // 12:00 IST
+    expect(isQuietHours(new Date('2026-08-26T17:30:00Z'))).toBe(false); // 23:00 IST
   });
 });
 

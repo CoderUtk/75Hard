@@ -38,6 +38,18 @@ export function istMinutes(now: Date): number {
   return h * 60 + m;
 }
 
+/** IST hour, 0–23. */
+export function istHour(now: Date): number {
+  return Math.floor(istMinutes(now) / 60);
+}
+
+/** Overnight silent window. Nudges fire at the top of every IST hour; this
+ *  suppresses them before 07:00, so the last of the night is 23:00 and the
+ *  first of the morning is 07:00. */
+export function isQuietHours(now: Date): boolean {
+  return istHour(now) < 7;
+}
+
 export function addDays(date: string, n: number): string {
   return fromEpoch(toEpoch(date) + n * DAY_MS);
 }

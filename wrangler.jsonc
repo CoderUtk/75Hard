@@ -11,5 +11,5 @@
   "r2_buckets": [
     { "binding": "PHOTOS", "bucket_name": "75hard-photos" }
   ],
-  "triggers": { "crons": ["30 6 * * *", "30 15 * * *"] }
+  "triggers": { "crons": ["30 6 * * *", "30 * * * *"] }
 }

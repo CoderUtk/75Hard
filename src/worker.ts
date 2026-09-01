@@ -1,6 +1,7 @@
 import api from './api/router';
 import { runDailyLock } from './services/cron';
 import { runNudge } from './services/nudge';
+import { isQuietHours } from './lib/dates';
 
 export interface Env {
   DB: D1Database;
@@ -20,8 +21,9 @@ export default {
 
   async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     const now = new Date(event.scheduledTime);
-    // "30 6 * * *" is 12:00 IST — the daily lock.
-    // "30 15 * * *" is 21:00 IST — the nudge push, added in Phase 5.
+    // "30 6 * * *" is 12:00 IST — the daily lock + milestone push.
+    // "30 * * * *" is the top of every IST hour — the nudge push, suppressed
+    // overnight by isQuietHours (last at 23:00, first at 07:00).
     if (event.cron === '30 6 * * *') {
       ctx.waitUntil(
         runDailyLock(env.DB, now, env)
@@ -33,7 +35,7 @@ export default {
           })
       );
     }
-    if (event.cron === '30 15 * * *') {
+    if (event.cron === '30 * * * *' && !isQuietHours(now)) {
       ctx.waitUntil(
         runNudge(env.DB, env, now)
           .then(({ sent }) => {
