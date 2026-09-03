@@ -126,3 +126,23 @@ it('never lets user B write to user A\'s day', async () => {
     .json<{ progress: Record<string, number> }>();
   expect(dayA.progress[gidA]).toBeUndefined();
 });
+
+it('POST /complete sets every goal to its target', async () => {
+  const res = await req(`/api/days/${today}/complete`, 'POST');
+  expect(res.status).toBe(200);
+  expect(await res.json()).toMatchObject({ ok: true, completed: 4 });
+
+  const day = await (await req(`/api/days/${today}`, 'GET'))
+    .json<{ state: string; goals: { id: string; target: number }[]; progress: Record<string, number> }>();
+  for (const g of day.goals) expect(day.progress[g.id]).toBe(g.target);
+});
+
+it('POST /complete refuses a date that is not today', async () => {
+  expect((await req(`/api/days/${addDays(today, 1)}/complete`, 'POST')).status).toBe(409);
+  expect((await req(`/api/days/${addDays(today, -1)}/complete`, 'POST')).status).toBe(409);
+});
+
+it('POST /complete requires auth', async () => {
+  const res = await SELF.fetch(`https://example.com/api/days/${today}/complete`, { method: 'POST' });
+  expect(res.status).toBe(401);
+});

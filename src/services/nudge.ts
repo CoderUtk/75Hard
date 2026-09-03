@@ -40,6 +40,8 @@ export async function runNudge(
 
       const payload = JSON.stringify({
         title: '75 Hard', body: nudgeText(day.day_number, goalsLeft), tag: 'nudge',
+        date: today,
+        actions: [{ action: 'complete', title: 'Mark today done' }],
       });
       for (const s of await listSubsForUser(db, userId)) {
         const r = await deps.send(cfg, { endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth }, payload);

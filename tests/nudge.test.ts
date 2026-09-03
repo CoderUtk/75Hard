@@ -57,7 +57,10 @@ it('nudges only users with an incomplete day, with the right text', async () => 
   expect(send).toHaveBeenCalledTimes(1);
   const [, sub, payload] = send.mock.calls[0]!;
   expect(sub.endpoint).toBe('https://push/u1');
-  expect(JSON.parse(payload)).toMatchObject({ title: '75 Hard', body: `Day 1 — 2 goals left.`, tag: 'nudge' });
+  expect(JSON.parse(payload)).toMatchObject({
+    title: '75 Hard', body: `Day 1 — 2 goals left.`, tag: 'nudge', date: TODAY,
+    actions: [{ action: 'complete', title: 'Mark today done' }],
+  });
 });
 
 it('prunes a subscription the push service rejects', async () => {

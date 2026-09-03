@@ -29,12 +29,37 @@ self.addEventListener('push', (event) => {
       body: data.body || '',
       icon: '/icon-192.png',
       tag: data.tag || 'nudge',
+      actions: Array.isArray(data.actions) ? data.actions : [],
+      data: { date: data.date || '' },
     }),
   );
 });
 
+async function completeToday(date) {
+  let msg = "Couldn’t update — open the app";
+  try {
+    const res = await fetch(`/api/days/${date}/complete`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'content-type': 'application/json' },
+    });
+    if (res.ok) msg = 'Day marked complete ✅';
+    else if (res.status === 401) msg = 'Open the app to sign in';
+  } catch (_e) { /* offline — keep the default message */ }
+  await self.registration.showNotification('75 Hard', {
+    body: msg, icon: '/icon-192.png', tag: 'nudge-result',
+  });
+}
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+
+  if (event.action === 'complete') {
+    const date = (event.notification.data && event.notification.data.date) || '';
+    event.waitUntil(completeToday(date));
+    return;
+  }
+
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
       for (const w of wins) {

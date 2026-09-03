@@ -66,3 +66,28 @@ days.put('/:date/goals/:goalId', async (c) => {
   await setProgress(c.env.DB, day.id, goalId, parsed.data.value);
   return c.json({ ok: true });
 });
+
+// Notification action: mark every goal on today's row complete (each set to its
+// target). Only ever acts on today — the notification may be tapped hours later,
+// so the date in the URL is re-validated, not trusted.
+days.post('/:date/complete', async (c) => {
+  const date = c.req.param('date');
+  if (!DATE_RE.test(date)) return c.json({ error: 'bad date' }, 400);
+
+  const user = c.get('user');
+  const now = new Date();
+  if (date !== todayIST(now)) return c.json({ error: 'not today' }, 409);
+  if (!isEditable(date, now)) return c.json({ error: 'day is locked' }, 409);
+
+  const run = await getActiveRun(c.env.DB, user.id);
+  if (!run) return c.json({ error: 'no active run' }, 404);
+
+  const day = await ensureDay(c.env.DB, run, date, user.id, now);
+  if (day.locked_at !== null) return c.json({ error: 'day is locked' }, 409);
+
+  const snapshot = JSON.parse(day.goals_snapshot) as GoalSnapshot[];
+  for (const g of snapshot) {
+    await setProgress(c.env.DB, day.id, g.id, g.target);
+  }
+  return c.json({ ok: true, completed: snapshot.length });
+});
